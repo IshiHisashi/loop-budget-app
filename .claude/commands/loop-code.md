@@ -33,5 +33,5 @@ You are running phase 2 (Code + Verify) of this repo's lean loop workflow.
 6. Update the issue's `loop-state` phase to `coded`.
 7. Stop. Summarize the PR to the human. Independent review now runs
    automatically in GitHub Actions on this PR (see
-   `.github/workflows/claude.yml`) — you don't need to trigger it, and you
-   should not review your own PR in this session.
+   `.github/workflows/claude-code-review.yml`) — you don't need to trigger
+   it, and you should not review your own PR in this session.

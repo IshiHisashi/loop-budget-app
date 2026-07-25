@@ -1,10 +1,25 @@
 # Independent review instructions
 
 This file is the prompt/protocol used by the automated reviewer (Claude
-Code's GitHub Action, running in `.github/workflows/claude.yml`) on every
-PR open/update. It runs in a fresh GitHub Actions runner with no access to
-whatever local session wrote the code — that separation is what makes the
-review independent, not just a convention.
+Code's GitHub Action, running in `.github/workflows/claude-code-review.yml`)
+on every non-draft PR open/update. It runs in a fresh GitHub Actions
+runner with no access to whatever local session wrote the code — that
+separation is what makes the review independent, not just a convention.
+
+## Round cap (token budget)
+
+This repo caps automated review ↔ address cycles at **2 rounds per PR**.
+
+1. Read the PR body (`gh pr view <n> --json body`) and find the hidden
+   `<!-- loop-state ... -->` block. Note `review-rounds`.
+2. If `review-rounds` is already `2` (or higher):
+   - Do **not** do another deep review.
+   - Submit a single `gh pr review --comment` explaining that the
+     automated review cap has been reached and a human must judge/merge
+     or reject.
+   - Stop.
+
+## Review protocol
 
 1. Read the PR diff and description (`gh pr diff`, `gh pr view --json body`).
 2. Read the linked issue for the approved plan and acceptance criteria
@@ -13,11 +28,24 @@ review independent, not just a convention.
    beyond what was planned.
 4. Review the diff for correctness, missed edge cases, and whether it
    actually satisfies the issue's acceptance criteria — not just whether
-   it runs. Re-run tests yourself rather than trusting the PR description.
-5. Post findings as PR comments. Be concrete: file/line, what's wrong,
-   what input would break it. If nothing blocking was found, say so
-   explicitly rather than inventing nitpicks.
+   it runs. Prefer trusting verified CI / the PR's test-plan checklist;
+   re-run package tests (`npm test` in `client/` and/or `server/`) only
+   when the claim looks shaky or untested paths are central to the change.
+5. Post findings on the PR — this is mandatory output:
+   - Concrete line-level issues via
+     `mcp__github_inline_comment__create_inline_comment` (with
+     `confirmed: true`): file/line, what's wrong, what input would break
+     it.
+   - Then submit a **formal GitHub review** with `gh pr review`:
+     - `--request-changes` if anything blocking remains
+     - `--approve` if acceptance criteria are met and nothing blocking
+     - `--comment` only for non-blocking notes with no blockers
+   - If nothing blocking was found, say so explicitly rather than
+     inventing nitpicks — then `--approve`.
 6. Update the PR's hidden `loop-state` comment: set `phase: reviewed`.
+   (Do not increment `review-rounds` here — `/loop-address` owns that
+   counter.)
 
 Findings get addressed locally via `/loop-address <pr-number>` (capped at
-4 rounds), then this reviewer runs again automatically on the next push.
+2 rounds), then this reviewer runs again automatically on the next push.
+After round 2, stop automating and leave the human to merge or intervene.
