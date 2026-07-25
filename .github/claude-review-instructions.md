@@ -6,7 +6,17 @@ on every non-draft PR open/update. It runs in a fresh GitHub Actions
 runner with no access to whatever local session wrote the code — that
 separation is what makes the review independent, not just a convention.
 
-## Round cap (token budget)
+## Turn / token budget
+
+CI caps tool turns. Prioritize posting a formal review over exhaustive
+exploration. A short review that lands on the PR beats a perfect review
+that never posts.
+
+Do **not** install dependencies or run `npm` / test suites in this job.
+Trust the PR's test-plan checklist and any existing checks; judge the
+diff and whether tests *look* adequate.
+
+## Round cap
 
 This repo caps automated review ↔ address cycles at **2 rounds per PR**.
 
@@ -28,23 +38,25 @@ This repo caps automated review ↔ address cycles at **2 rounds per PR**.
    beyond what was planned.
 4. Review the diff for correctness, missed edge cases, and whether it
    actually satisfies the issue's acceptance criteria — not just whether
-   it runs. Prefer trusting verified CI / the PR's test-plan checklist;
-   re-run package tests (`npm test` in `client/` and/or `server/`) only
-   when the claim looks shaky or untested paths are central to the change.
-5. Post findings on the PR — this is mandatory output:
+   it runs. Spot-check that claimed tests exist and cover the new paths;
+   do not execute them here.
+5. Post findings on the PR — this is mandatory output, and must happen
+   before you exhaust turns:
    - Concrete line-level issues via
      `mcp__github_inline_comment__create_inline_comment` (with
      `confirmed: true`): file/line, what's wrong, what input would break
-     it.
+     it. Cap at a handful of the highest-severity findings.
    - Then submit a **formal GitHub review** with `gh pr review`:
      - `--request-changes` if anything blocking remains
      - `--approve` if acceptance criteria are met and nothing blocking
      - `--comment` only for non-blocking notes with no blockers
    - If nothing blocking was found, say so explicitly rather than
      inventing nitpicks — then `--approve`.
-6. Update the PR's hidden `loop-state` comment: set `phase: reviewed`.
+6. If turns remain, update the PR's hidden `loop-state` via
+   `gh pr edit` / `gh api`: set `phase: reviewed`.
    (Do not increment `review-rounds` here — `/loop-address` owns that
-   counter.)
+   counter.) If updating the body would burn remaining turns, skip it —
+   the formal review is the deliverable.
 
 Findings get addressed locally via `/loop-address <pr-number>` (capped at
 2 rounds), then this reviewer runs again automatically on the next push.
