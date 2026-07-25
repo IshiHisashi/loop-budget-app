@@ -51,9 +51,10 @@ record of state — not agent memory. Concretely:
    is a separate general-purpose assistant triggered by `@claude` mentions
    in issues/PR comments — unrelated to this loop, safe to ignore or use
    ad hoc.)
-5. `/loop-address <PR#>` — fixes findings from step 4, capped at 4 rounds.
-   After that it stops and asks the human to merge or intervene. The next
-   push re-triggers the automated review.
+5. `/loop-address <PR#>` — fixes findings from step 4, capped at 2 rounds
+   (token budget). After that it stops and asks the human to merge or
+   intervene. The next push re-triggers the automated review once more;
+   past the cap the reviewer only leaves a "human decide" comment.
 6. **Human merges.** This is the only step that isn't automatable.
 
 Every feature issue should stay traceable to `docs/VISION.md`. If a task
