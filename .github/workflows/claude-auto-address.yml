@@ -1,0 +1,95 @@
+name: Claude Auto Address
+
+# Reacts to the independent reviewer (claude[bot], see
+# claude-code-review.yml) requesting changes on a PR, and runs the same
+# fix protocol as `/loop-address` — but in CI, pushing straight back to
+# the PR branch instead of waiting for a human to invoke it locally.
+#
+# Gated to same-repo PRs only (no forks: a fork's GITHUB_TOKEN can't push
+# back anyway, and we don't want CI committing to someone else's branch)
+# and to reviews actually left by the reviewer bot, not human reviewers
+# requesting changes for reasons outside this loop.
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: claude-auto-address-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  auto-address:
+    if: |
+      github.event.review.state == 'changes_requested' &&
+      github.event.review.user.login == 'claude[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+
+      - name: Check review-rounds cap
+        id: cap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=$(gh pr view "${{ github.event.pull_request.number }}" --json body -q .body)
+          ROUNDS=$(printf '%s' "$BODY" | grep -oP 'review-rounds:\s*\K[0-9]+' || echo 0)
+          echo "rounds=$ROUNDS" >> "$GITHUB_OUTPUT"
+          if [ "$ROUNDS" -ge 2 ]; then
+            echo "capped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "capped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post cap-reached comment
+        if: steps.cap.outputs.capped == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --body \
+            "Automated review ↔ address cap (2 rounds) reached. This needs a human decision now — merge, request further changes yourself, or close."
+
+      - name: Address findings
+        if: steps.cap.outputs.capped == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            CURRENT review-rounds (before this fix): ${{ steps.cap.outputs.rounds }}
+
+            Follow .claude/commands/loop-address.md's protocol for this
+            PR, with one change for this non-interactive CI context: you
+            are already checked out on the PR's head branch, so "push the
+            fixes to the PR branch" means commit and `git push` directly
+            (no human waits on the other end) — do that instead of
+            stopping to ask.
+
+            Hard constraints:
+            - Only resolve the specific blocking findings from the most
+              recent claude[bot] review on this PR. Don't touch unrelated
+              code or expand scope.
+            - Run the relevant package tests (`npm test` in `client/`
+              and/or `server/`, whichever you touch) before pushing.
+              Don't skip or weaken a failing test to make it pass.
+            - Commit with a clear message describing what finding it
+              fixes, then push.
+            - Increment `review-rounds` in the PR body's hidden
+              `loop-state` block and set `phase: addressed` via `gh pr
+              edit`.
+            - Reply to each finding thread noting how it was resolved (or
+              why you disagree, if you do).
+
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(npm:*),Bash(gh pr:*),Bash(gh api:*)"

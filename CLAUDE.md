@@ -51,10 +51,18 @@ record of state — not agent memory. Concretely:
    is a separate general-purpose assistant triggered by `@claude` mentions
    in issues/PR comments — unrelated to this loop, safe to ignore or use
    ad hoc.)
-5. `/loop-address <PR#>` — fixes findings from step 4, capped at 2 rounds
-   (token budget). After that it stops and asks the human to merge or
-   intervene. The next push re-triggers the automated review once more;
-   past the cap the reviewer only leaves a "human decide" comment.
+5. **Addressing findings also runs automatically in GitHub Actions** —
+   see `.github/workflows/claude-auto-address.yml`. It triggers whenever
+   `claude[bot]` (the step-4 reviewer) submits a "changes requested"
+   review on a same-repo PR (forked-repo PRs are skipped — CI can't push
+   to those anyway). It reads the PR's hidden `loop-state` `review-rounds`
+   count: below the cap it fixes the blocking findings and pushes
+   straight to the PR branch (re-triggering step 4 on the new commit);
+   at the cap (2 rounds) it leaves a "human decide" comment instead of
+   trying again. `/loop-address <PR#>` (`.claude/commands/loop-address.md`)
+   is the same protocol runnable locally/interactively — reach for it if
+   you want to intervene yourself rather than wait on CI, or if the PR
+   needs a decision only a human can make.
 6. **Human merges.** This is the only step that isn't automatable.
 
 Every feature issue should stay traceable to `docs/VISION.md`. If a task
@@ -74,3 +82,9 @@ runs, and the review-round cap in `/loop-address`. Genuinely destructive
 git operations (force-push, `reset --hard`, `clean -f`, `branch -D`,
 `rm -rf`) stay blocked — those need an explicit ask even inside this
 grant.
+
+Step 5's CI automation (`claude-auto-address.yml`) is a separate grant —
+scoped to that workflow's own `GITHUB_TOKEN` permissions
+(`contents: write`, same-repo PRs only), not `.claude/settings.json`,
+since it runs unattended in a GitHub Actions runner rather than a local
+session.
