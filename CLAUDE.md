@@ -60,3 +60,17 @@ record of state — not agent memory. Concretely:
 Every feature issue should stay traceable to `docs/VISION.md`. If a task
 doesn't map to anything in VISION.md, update VISION.md first — don't let
 scope drift in through an issue instead.
+
+### Working autonomously through steps 2–5
+
+Review in this workflow happens on the PR (step 4), not by watching the
+agent's process — so `/loop-plan`, `/loop-code`, and `/loop-address` are
+authorized to run the git/npm/gh commands and file edits those steps need
+(install deps, run tests/lint, `git add`/`commit`/`push`, `gh pr`/`issue`
+create/edit) without stopping for per-command confirmation.
+`.claude/settings.json` grants this. It still stops for human input at
+the points the loop itself defines: plan approval before `/loop-code`
+runs, and the review-round cap in `/loop-address`. Genuinely destructive
+git operations (force-push, `reset --hard`, `clean -f`, `branch -D`,
+`rm -rf`) stay blocked — those need an explicit ask even inside this
+grant.
