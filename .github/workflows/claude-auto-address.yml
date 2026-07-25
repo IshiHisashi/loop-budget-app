@@ -84,12 +84,34 @@ jobs:
               Don't skip or weaken a failing test to make it pass.
             - Commit with a clear message describing what finding it
               fixes, then push.
-            - Increment `review-rounds` in the PR body's hidden
-              `loop-state` block and set `phase: addressed` via `gh pr
-              edit`.
+            - Do NOT touch `review-rounds` in the PR body yourself — a
+              later workflow step increments it deterministically
+              whether or not this step succeeds. You may set
+              `phase: addressed` via `gh pr edit` if you want, but leave
+              the `review-rounds` line exactly as it is.
             - Reply to each finding thread noting how it was resolved (or
               why you disagree, if you do).
 
           claude_args: |
             --max-turns 40
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(npm:*),Bash(gh pr:*),Bash(gh api:*)"
+
+      # Deterministic, independent of whether the step above succeeded,
+      # ran out of turns, or forgot: without this, a failed/incomplete
+      # address attempt would leave review-rounds unchanged and the next
+      # "changes requested" review would re-trigger this workflow against
+      # the same under-cap count — defeating the round cap entirely.
+      - name: Bump review-rounds
+        if: always() && steps.cap.outputs.capped == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR="${{ github.event.pull_request.number }}"
+          NEW_ROUNDS=$(( ${{ steps.cap.outputs.rounds }} + 1 ))
+          gh pr view "$PR" --json body -q .body > /tmp/pr-body.md
+          if grep -qP 'review-rounds:\s*[0-9]+' /tmp/pr-body.md; then
+            sed -i -E "s/review-rounds:[[:space:]]*[0-9]+/review-rounds: ${NEW_ROUNDS}/" /tmp/pr-body.md
+          else
+            printf '\n<!-- loop-state\nphase: addressed\nreview-rounds: %s\n-->\n' "$NEW_ROUNDS" >> /tmp/pr-body.md
+          fi
+          gh pr edit "$PR" --body-file /tmp/pr-body.md
