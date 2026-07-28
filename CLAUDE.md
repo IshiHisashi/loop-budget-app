@@ -9,6 +9,11 @@ for the current backlog.
 - **Client**: React
 - **Server**: Node/Express
 - **Database**: MongoDB
+- **Language**: TypeScript (client + server). Issues #2 (Project
+  bootstrap) and #3 (Category model) shipped in plain JavaScript — see
+  issue #12 for the conversion. New code should still land in JS until
+  #12 lands, to avoid a mixed half-converted state; #12 itself is the one
+  exception.
 
 Directory layout (client/ and server/ are created by the "Project
 bootstrap" epic — if they don't exist yet, that epic hasn't landed):
