@@ -19,6 +19,17 @@ issues are not pre-created for the whole backlog up front.
 5. **Budget vs actual view** — per-category, per-month comparison of
    budgeted vs actual spend.
 
+## Technical
+
+Not derived from `VISION.md` — engineering/stack decisions, tracked here
+only for prioritization since they affect when the `## v1` epics below
+land, not what they do. See `CLAUDE.md`'s Stack section for the
+authority on current stack choices.
+
+- **TypeScript conversion** (#12) — convert `client/` and `server/` from
+  JavaScript to TypeScript. Prioritized ahead of items 3–5 below, so
+  those land as TypeScript from the start.
+
 ## Later (currently non-goals — see VISION.md)
 
 - Recurring transactions
