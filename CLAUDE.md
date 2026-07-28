@@ -93,3 +93,18 @@ scoped to that workflow's own `GITHUB_TOKEN` permissions
 (`contents: write`, same-repo PRs only), not `.claude/settings.json`,
 since it runs unattended in a GitHub Actions runner rather than a local
 session.
+
+### `/loop-code` doesn't stop to ask mid-implementation
+
+Once a plan is approved, `/loop-code` should run straight through to a
+pushed PR without pausing to ask clarifying questions about
+implementation details or ambiguities encountered along the way — make
+the best reasonable call, per the approved plan and existing code
+conventions, and note the decision (and why) in the PR description
+instead. The safety net for this phase is the PR itself, not the
+process that produced it: the automated reviewer (step 4) checks the
+actual diff, and the human is the final reviewer before merge. This
+doesn't change the loop's real stop points — plan approval still gates
+`/loop-code` starting at all, and the review-round cap still stops
+`/loop-address` — it's specifically about not adding *extra*
+confirmation stops inside an already-approved coding run.

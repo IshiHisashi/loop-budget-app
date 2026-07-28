@@ -15,7 +15,13 @@ You are running phase 2 (Code + Verify) of this repo's lean loop workflow.
    ask before writing code.
 3. Implement strictly per the approved plan. Don't add scope beyond the
    issue's acceptance criteria — if you notice something else worth doing,
-   note it as a follow-up suggestion rather than doing it inline.
+   note it as a follow-up suggestion rather than doing it inline. Don't
+   stop to ask clarifying questions about implementation details or
+   ambiguities you hit along the way — make the best reasonable call and
+   record it (and why) in the PR description. See CLAUDE.md's
+   "`/loop-code` doesn't stop to ask mid-implementation" — the automated
+   reviewer and the human's final PR review are the safety net for this
+   phase, not per-decision confirmation.
 4. Run the relevant tests/lint for whatever you touched (client/ and/or
    server/ package scripts). Fix failures. Don't skip or weaken tests to
    make them pass.
