@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "react": "^19.2.7",
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "jsdom": "^27.0.1",
     "oxlint": "^1.71.0",
+    "typescript": "^7.0.2",
     "vite": "^8.1.1",
     "vitest": "^3.2.7"
   }

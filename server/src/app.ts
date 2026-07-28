@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { NextFunction, Request, Response } from 'express'
 import healthRouter from './routes/health.js'
 import categoriesRouter from './routes/categories.js'
 
@@ -10,7 +10,7 @@ app.use('/api/categories', categoriesRouter)
 
 // Express identifies error-handling middleware by its 4-arg signature —
 // `next` must stay in the signature even though it's unused here.
-app.use((err, req, res, next) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   if (err.name === 'MongooseError' || err.name === 'MongoServerSelectionError') {
     return res.status(503).json({ error: 'database unavailable' })
   }

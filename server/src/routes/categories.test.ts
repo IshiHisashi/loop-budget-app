@@ -6,7 +6,7 @@ import app from '../app.js'
 import Category from '../models/Category.js'
 import { DEFAULT_CATEGORY_NAMES, seedDefaultCategories } from '../seed/categories.js'
 
-let mongod
+let mongod: MongoMemoryServer
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()
@@ -30,7 +30,7 @@ describe('GET /api/categories', () => {
 
     expect(res.status).toBe(200)
     expect(res.body).toHaveLength(DEFAULT_CATEGORY_NAMES.length)
-    expect(res.body.every((c) => c.isDefault === true)).toBe(true)
+    expect(res.body.every((c: { isDefault: boolean }) => c.isDefault === true)).toBe(true)
   })
 })
 
@@ -74,7 +74,7 @@ describe('PATCH /api/categories/:id', () => {
     const food = await Category.findOne({ name: 'Food' })
 
     const res = await request(app)
-      .patch(`/api/categories/${food._id}`)
+      .patch(`/api/categories/${food!._id}`)
       .send({ name: 'Snacks' })
 
     expect(res.status).toBe(403)
@@ -117,7 +117,7 @@ describe('DELETE /api/categories/:id', () => {
     await seedDefaultCategories()
     const food = await Category.findOne({ name: 'Food' })
 
-    const res = await request(app).delete(`/api/categories/${food._id}`)
+    const res = await request(app).delete(`/api/categories/${food!._id}`)
 
     expect(res.status).toBe(403)
   })
