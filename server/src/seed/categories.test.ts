@@ -4,7 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import Category from '../models/Category.js'
 import { DEFAULT_CATEGORY_NAMES, seedDefaultCategories } from './categories.js'
 
-let mongod
+let mongod: MongoMemoryServer
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()

@@ -4,7 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import request from 'supertest'
 import app from '../app.js'
 
-let mongod
+let mongod: MongoMemoryServer
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()

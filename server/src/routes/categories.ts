@@ -1,25 +1,30 @@
-import { Router } from 'express'
+import { Request, Response, Router } from 'express'
 import mongoose from 'mongoose'
-import Category from '../models/Category.js'
+import Category, { CategoryDocument } from '../models/Category.js'
 
 const router = Router()
 
-function escapeRegex(value) {
+function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function nameConflictQuery(name, excludeId) {
-  const query = { name: { $regex: `^${escapeRegex(name)}$`, $options: 'i' } }
+function nameConflictQuery(
+  name: string,
+  excludeId?: string
+): mongoose.QueryFilter<CategoryDocument> {
+  const query: mongoose.QueryFilter<CategoryDocument> = {
+    name: { $regex: `^${escapeRegex(name)}$`, $options: 'i' },
+  }
   if (excludeId) query._id = { $ne: excludeId }
   return query
 }
 
-router.get('/', async (req, res) => {
+router.get('/', async (_req: Request, res: Response) => {
   const categories = await Category.find()
   res.status(200).json(categories)
 })
 
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : ''
   if (!name) {
     return res.status(400).json({ error: 'name is required' })
@@ -34,7 +39,7 @@ router.post('/', async (req, res) => {
   res.status(201).json(category)
 })
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(404).json({ error: 'category not found' })
@@ -63,7 +68,7 @@ router.patch('/:id', async (req, res) => {
   res.status(200).json(category)
 })
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
   const { id } = req.params
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(404).json({ error: 'category not found' })
