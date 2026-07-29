@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import request from 'supertest'
 import app from '../app.js'
+import Budget from '../models/Budget.js'
 import Category from '../models/Category.js'
 import { DEFAULT_CATEGORY_NAMES, seedDefaultCategories } from '../seed/categories.js'
 
@@ -14,6 +15,7 @@ beforeAll(async () => {
 })
 
 afterEach(async () => {
+  await Budget.deleteMany({})
   await Category.deleteMany({})
 })
 
@@ -128,5 +130,16 @@ describe('DELETE /api/categories/:id', () => {
     const res = await request(app).delete(`/api/categories/${fakeId}`)
 
     expect(res.status).toBe(404)
+  })
+
+  it('rejects deleting a category that has a budget entry', async () => {
+    const created = await Category.create({ name: 'Gifts', isDefault: false })
+    await Budget.create({ category: created._id, amount: 100 })
+
+    const res = await request(app).delete(`/api/categories/${created._id}`)
+
+    expect(res.status).toBe(409)
+    const stillThere = await Category.findById(created._id)
+    expect(stillThere).not.toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express'
 import mongoose from 'mongoose'
 import Category, { CategoryDocument } from '../models/Category.js'
+import Budget from '../models/Budget.js'
 
 const router = Router()
 
@@ -80,6 +81,11 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
   }
   if (category.isDefault) {
     return res.status(403).json({ error: 'predefined categories cannot be deleted' })
+  }
+
+  const hasBudget = await Budget.exists({ category: id })
+  if (hasBudget) {
+    return res.status(409).json({ error: 'category has a budget entry and cannot be deleted' })
   }
 
   await category.deleteOne()

@@ -1,12 +1,19 @@
+import cors from 'cors'
 import express, { NextFunction, Request, Response } from 'express'
 import healthRouter from './routes/health.js'
 import categoriesRouter from './routes/categories.js'
+import budgetsRouter from './routes/budgets.js'
 
 const app = express()
 
+// No auth or sensitive data in this app (single-device personal use per
+// VISION.md) — permissive CORS costs nothing here and avoids dev/prod
+// origin-mismatch friction a restrictive allowlist would add.
+app.use(cors())
 app.use(express.json())
 app.use('/api', healthRouter)
 app.use('/api/categories', categoriesRouter)
+app.use('/api/budgets', budgetsRouter)
 
 // Express identifies error-handling middleware by its 4-arg signature —
 // `next` must stay in the signature even though it's unused here.
