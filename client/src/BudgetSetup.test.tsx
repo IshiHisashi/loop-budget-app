@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BudgetSetup from './BudgetSetup.tsx'
 
@@ -10,7 +10,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response
 }
 
-function mockFetch() {
+function mockFetch(options: { failPut?: boolean } = {}) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
 
@@ -28,6 +28,9 @@ function mockFetch() {
     }
 
     if (url.endsWith('/api/budgets/cat2') && method === 'PUT') {
+      if (options.failPut) {
+        return jsonResponse({ error: 'server exploded' }, 500)
+      }
       const body = JSON.parse(init!.body as string) as { amount: number }
       return jsonResponse({
         _id: 'b2',
@@ -38,8 +41,16 @@ function mockFetch() {
       })
     }
 
+    if (url.endsWith('/api/budgets/cat1') && method === 'DELETE') {
+      return jsonResponse({ deleted: true })
+    }
+
     throw new Error(`Unhandled request: ${method} ${url}`)
   })
+}
+
+function rowFor(labelText: string) {
+  return screen.getByLabelText(labelText).closest('li') as HTMLElement
 }
 
 beforeEach(() => {
@@ -61,12 +72,23 @@ describe('BudgetSetup', () => {
     expect(rentInput).toHaveValue(null)
   })
 
-  it('saves an edited amount via PUT on blur', async () => {
+  it('Clear is disabled for a category with no existing budget entry', async () => {
+    render(<BudgetSetup />)
+    await screen.findByLabelText('Rent budget amount')
+
+    const rentClear = within(rowFor('Rent budget amount')).getByRole('button', { name: 'Clear' })
+    expect(rentClear).toBeDisabled()
+
+    const foodClear = within(rowFor('Food budget amount')).getByRole('button', { name: 'Clear' })
+    expect(foodClear).not.toBeDisabled()
+  })
+
+  it('saves an edited amount via PUT when Save is clicked', async () => {
     render(<BudgetSetup />)
 
     const rentInput = await screen.findByLabelText('Rent budget amount')
     fireEvent.change(rentInput, { target: { value: '1200' } })
-    fireEvent.blur(rentInput)
+    fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
@@ -77,5 +99,48 @@ describe('BudgetSetup', () => {
         })
       )
     })
+
+    await within(rowFor('Rent budget amount')).findByText('Saved ✓')
+  })
+
+  it('rejects an invalid amount client-side without calling the API', async () => {
+    render(<BudgetSetup />)
+
+    const rentInput = await screen.findByLabelText('Rent budget amount')
+    fireEvent.change(rentInput, { target: { value: '-5' } })
+    const putCallsBefore = vi.mocked(fetch).mock.calls.length
+    fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
+
+    await within(rowFor('Rent budget amount')).findByText('Enter a non-negative number')
+    expect(vi.mocked(fetch).mock.calls.length).toBe(putCallsBefore)
+  })
+
+  it('shows a per-row error on save failure without affecting other rows', async () => {
+    vi.stubGlobal('fetch', mockFetch({ failPut: true }))
+    render(<BudgetSetup />)
+
+    const rentInput = await screen.findByLabelText('Rent budget amount')
+    fireEvent.change(rentInput, { target: { value: '1200' } })
+    fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
+
+    await within(rowFor('Rent budget amount')).findByText('server exploded')
+    expect(screen.getByLabelText('Food budget amount')).toHaveValue(300)
+  })
+
+  it('clears an existing budget via DELETE when Clear is clicked', async () => {
+    render(<BudgetSetup />)
+    await screen.findByLabelText('Food budget amount')
+
+    fireEvent.click(within(rowFor('Food budget amount')).getByRole('button', { name: 'Clear' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/budgets/cat1'),
+        expect.objectContaining({ method: 'DELETE' })
+      )
+    })
+
+    await within(rowFor('Food budget amount')).findByText('Saved ✓')
+    expect(screen.getByLabelText('Food budget amount')).toHaveValue(null)
   })
 })
