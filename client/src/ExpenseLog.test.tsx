@@ -68,13 +68,13 @@ function mockFetch(options: { failPatch?: boolean } = {}) {
       if (options.failPatch) {
         return jsonResponse({ error: 'server exploded' }, 500)
       }
-      const body = JSON.parse(init!.body as string) as { amount: number }
+      const body = JSON.parse(init!.body as string) as { amount: number; note?: string }
       return jsonResponse({
         _id: 'exp-food',
         date: '2026-01-20T00:00:00.000Z',
         amount: body.amount,
         category: 'cat1',
-        note: 'Groceries',
+        note: body.note,
         createdAt: '',
         updatedAt: '',
       })
@@ -167,6 +167,35 @@ describe('ExpenseLog', () => {
     })
 
     await within(foodRow).findByText('Saved ✓')
+  })
+
+  it('clears a note via inline edit', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+
+    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    fireEvent.change(within(foodRow).getByLabelText('Expense note'), {
+      target: { value: '' },
+    })
+    fireEvent.click(within(foodRow).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/expenses/exp-food'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            date: '2026-01-20',
+            amount: 50,
+            category: 'cat1',
+            note: '',
+          }),
+        })
+      )
+    })
+
+    await within(foodRow).findByText('Saved ✓')
+    expect(within(foodRow).getByLabelText('Expense note')).toHaveValue('')
   })
 
   it('shows a per-row error on save failure without affecting other rows', async () => {

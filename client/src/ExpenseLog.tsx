@@ -43,7 +43,7 @@ function parseDraft(draft: Draft): ExpenseInput | null {
     date: draft.date,
     amount,
     category: draft.category,
-    note: draft.note.trim() || undefined,
+    note: draft.note.trim(),
   }
 }
 
