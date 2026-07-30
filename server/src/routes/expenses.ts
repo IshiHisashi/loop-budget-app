@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express'
 import mongoose from 'mongoose'
-import Expense from '../models/Expense.js'
+import Expense, { MIN_EXPENSE_AMOUNT } from '../models/Expense.js'
 import Category from '../models/Category.js'
 
 const router = Router()
@@ -21,8 +21,8 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'date is invalid' })
   }
 
-  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
-    return res.status(400).json({ error: 'amount must be a positive number' })
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < MIN_EXPENSE_AMOUNT) {
+    return res.status(400).json({ error: `amount must be at least ${MIN_EXPENSE_AMOUNT}` })
   }
 
   if (typeof category !== 'string' || !mongoose.Types.ObjectId.isValid(category)) {
@@ -69,8 +69,8 @@ router.patch('/:id', async (req: Request<{ id: string }>, res: Response) => {
   }
 
   if (amount !== undefined) {
-    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'amount must be a positive number' })
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < MIN_EXPENSE_AMOUNT) {
+      return res.status(400).json({ error: `amount must be at least ${MIN_EXPENSE_AMOUNT}` })
     }
     expense.amount = amount
   }

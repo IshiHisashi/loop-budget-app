@@ -104,6 +104,16 @@ describe('POST /api/expenses', () => {
     expect(res.status).toBe(400)
   })
 
+  it('rejects a positive amount below the minimum with 400, not 500', async () => {
+    const category = await Category.create({ name: 'Food', isDefault: false })
+
+    const res = await request(app)
+      .post('/api/expenses')
+      .send({ date: '2026-01-15', amount: 0.005, category: category._id.toString() })
+
+    expect(res.status).toBe(400)
+  })
+
   it('rejects a malformed category id', async () => {
     const res = await request(app)
       .post('/api/expenses')
@@ -144,6 +154,17 @@ describe('PATCH /api/expenses/:id', () => {
     const res = await request(app)
       .patch(`/api/expenses/${expense._id}`)
       .send({ amount: -1 })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a positive amount below the minimum with 400, not 500', async () => {
+    const category = await Category.create({ name: 'Food', isDefault: false })
+    const expense = await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+
+    const res = await request(app)
+      .patch(`/api/expenses/${expense._id}`)
+      .send({ amount: 0.005 })
 
     expect(res.status).toBe(400)
   })
