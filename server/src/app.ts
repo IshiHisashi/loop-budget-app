@@ -3,6 +3,7 @@ import express, { NextFunction, Request, Response } from 'express'
 import healthRouter from './routes/health.js'
 import categoriesRouter from './routes/categories.js'
 import budgetsRouter from './routes/budgets.js'
+import expensesRouter from './routes/expenses.js'
 
 const app = express()
 
@@ -14,6 +15,7 @@ app.use(express.json())
 app.use('/api', healthRouter)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/budgets', budgetsRouter)
+app.use('/api/expenses', expensesRouter)
 
 // Express identifies error-handling middleware by its 4-arg signature —
 // `next` must stay in the signature even though it's unused here.
