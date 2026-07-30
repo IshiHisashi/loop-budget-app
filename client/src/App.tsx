@@ -1,4 +1,5 @@
 import BudgetSetup from './BudgetSetup.tsx'
+import ExpenseLog from './ExpenseLog.tsx'
 
 function App() {
   return (
@@ -6,6 +7,7 @@ function App() {
       <h1>Loop Budget</h1>
       <p>Personal budget tracker.</p>
       <BudgetSetup />
+      <ExpenseLog />
     </main>
   )
 }

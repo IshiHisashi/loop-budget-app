@@ -5,6 +5,7 @@ import request from 'supertest'
 import app from '../app.js'
 import Budget from '../models/Budget.js'
 import Category from '../models/Category.js'
+import Expense from '../models/Expense.js'
 import { DEFAULT_CATEGORY_NAMES, seedDefaultCategories } from '../seed/categories.js'
 
 let mongod: MongoMemoryServer
@@ -16,6 +17,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await Budget.deleteMany({})
+  await Expense.deleteMany({})
   await Category.deleteMany({})
 })
 
@@ -135,6 +137,17 @@ describe('DELETE /api/categories/:id', () => {
   it('rejects deleting a category that has a budget entry', async () => {
     const created = await Category.create({ name: 'Gifts', isDefault: false })
     await Budget.create({ category: created._id, amount: 100 })
+
+    const res = await request(app).delete(`/api/categories/${created._id}`)
+
+    expect(res.status).toBe(409)
+    const stillThere = await Category.findById(created._id)
+    expect(stillThere).not.toBeNull()
+  })
+
+  it('rejects deleting a category that has an expense entry', async () => {
+    const created = await Category.create({ name: 'Gifts', isDefault: false })
+    await Expense.create({ date: '2026-01-15', amount: 10, category: created._id })
 
     const res = await request(app).delete(`/api/categories/${created._id}`)
 

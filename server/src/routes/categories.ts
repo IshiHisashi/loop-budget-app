@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express'
 import mongoose from 'mongoose'
 import Category, { CategoryDocument } from '../models/Category.js'
 import Budget from '../models/Budget.js'
+import Expense from '../models/Expense.js'
 
 const router = Router()
 
@@ -86,6 +87,11 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
   const hasBudget = await Budget.exists({ category: id })
   if (hasBudget) {
     return res.status(409).json({ error: 'category has a budget entry and cannot be deleted' })
+  }
+
+  const hasExpense = await Expense.exists({ category: id })
+  if (hasExpense) {
+    return res.status(409).json({ error: 'category has expense entries and cannot be deleted' })
   }
 
   await category.deleteOne()
