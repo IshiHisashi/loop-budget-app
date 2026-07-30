@@ -33,6 +33,13 @@ jobs:
           # gh/MCP comment attempt is denied (see permission_denials in
           # the Action log) and the check still goes green with no PR
           # output. Tools below are required for visible review output.
+          #
+          # claude-auto-address.yml pushes fix commits as claude[bot],
+          # which re-triggers this workflow via `synchronize` — the
+          # action refuses to run for a bot-triggered event unless
+          # explicitly allowed. Same root cause/fix as claude-auto-
+          # address.yml itself (see that file for the full story).
+          allowed_bots: claude
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
