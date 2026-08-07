@@ -14,15 +14,26 @@ function BudgetVsActual() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setLoadError(null)
     Promise.all([getCategories(), getBudgetVsActual(month)])
       .then(([categoriesResult, rowsResult]) => {
+        if (cancelled) return
         setCategories(categoriesResult)
         setRows(rowsResult)
       })
-      .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false))
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setLoadError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [month])
 
   return (
@@ -55,7 +66,7 @@ function BudgetVsActual() {
               const row = rows.find((r) => r.category === category._id)
               const budgeted = row?.budgeted ?? 0
               const actual = row?.actual ?? 0
-              const difference = budgeted - actual
+              const difference = Math.round((budgeted - actual) * 100) / 100
 
               return (
                 <tr key={category._id}>
