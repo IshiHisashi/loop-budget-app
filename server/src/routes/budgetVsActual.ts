@@ -1,0 +1,45 @@
+import { Request, Response, Router } from 'express'
+import Budget from '../models/Budget.js'
+import Category from '../models/Category.js'
+import Expense from '../models/Expense.js'
+
+const router = Router()
+
+router.get('/', async (req: Request, res: Response) => {
+  const month = req.query.month
+  if (typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    return res.status(400).json({ error: 'month must be in YYYY-MM format' })
+  }
+
+  const [year, monthNumber] = month.split('-').map(Number)
+  const start = new Date(Date.UTC(year, monthNumber - 1, 1))
+  const end = new Date(Date.UTC(year, monthNumber, 1))
+
+  const [categories, budgets, expenses] = await Promise.all([
+    Category.find(),
+    Budget.find(),
+    Expense.find({ date: { $gte: start, $lt: end } }),
+  ])
+
+  const budgetByCategory = new Map(budgets.map((budget) => [budget.category.toString(), budget.amount]))
+
+  const actualByCategory = new Map<string, number>()
+  for (const expense of expenses) {
+    const key = expense.category.toString()
+    actualByCategory.set(key, (actualByCategory.get(key) ?? 0) + expense.amount)
+  }
+
+  const rows = categories.map((category) => {
+    const id = category._id.toString()
+    const actual = Math.round((actualByCategory.get(id) ?? 0) * 100) / 100
+    return {
+      category: id,
+      budgeted: budgetByCategory.get(id) ?? 0,
+      actual,
+    }
+  })
+
+  res.status(200).json(rows)
+})
+
+export default router
