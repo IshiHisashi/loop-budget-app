@@ -76,12 +76,31 @@ function BudgetSetup() {
     }
   }
 
-  if (loading) return <p>Loading…</p>
-  if (loadError) return <p role="alert">{loadError}</p>
+  const cardClassName =
+    'mb-6 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900'
+
+  if (loading) {
+    return (
+      <div className={cardClassName}>
+        <p className="text-neutral-600 dark:text-neutral-400">Loading…</p>
+      </div>
+    )
+  }
+  if (loadError) {
+    return (
+      <div className={cardClassName}>
+        <p role="alert" className="text-neutral-600 dark:text-neutral-400">
+          {loadError}
+        </p>
+      </div>
+    )
+  }
 
   return (
-    <section>
-      <h2>Monthly budgets</h2>
+    <section className={cardClassName}>
+      <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+        Monthly budgets
+      </h2>
       <ul>
         {categories.map((category) => {
           const hasExisting = budgets.some((budget) => budget.category === category._id)
