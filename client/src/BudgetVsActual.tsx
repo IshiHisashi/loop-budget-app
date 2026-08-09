@@ -37,8 +37,10 @@ function BudgetVsActual() {
   }, [month])
 
   return (
-    <section>
-      <h2>Budget vs actual</h2>
+    <section className="mb-6 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+      <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+        Budget vs actual
+      </h2>
       <label>
         Month
         <input
@@ -48,8 +50,12 @@ function BudgetVsActual() {
         />
       </label>
 
-      {loading && <p>Loading…</p>}
-      {loadError && <p role="alert">{loadError}</p>}
+      {loading && <p className="text-neutral-600 dark:text-neutral-400">Loading…</p>}
+      {loadError && (
+        <p role="alert" className="text-neutral-600 dark:text-neutral-400">
+          {loadError}
+        </p>
+      )}
 
       {!loading && !loadError && (
         <table>

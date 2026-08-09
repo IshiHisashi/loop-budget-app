@@ -1,10 +1,11 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   // Vitest's transform pipeline doesn't pick up the oxc automatic JSX
   // runtime that vite build/dev use, so it needs an explicit esbuild
   // fallback — only set it under test to avoid vite's "esbuild and oxc
