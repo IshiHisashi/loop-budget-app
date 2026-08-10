@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BudgetSetup from './BudgetSetup.tsx'
 
@@ -101,6 +101,33 @@ describe('BudgetSetup', () => {
     })
 
     await within(rowFor('Rent budget amount')).findByText('Saved ✓')
+  })
+
+  it('replaces Save/Clear with the success message, then restores them after 3 seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<BudgetSetup />)
+
+      const rentInput = await screen.findByLabelText('Rent budget amount')
+      fireEvent.change(rentInput, { target: { value: '1200' } })
+      fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
+
+      await within(rowFor('Rent budget amount')).findByText('Saved ✓')
+      expect(
+        within(rowFor('Rent budget amount')).queryByRole('button', { name: 'Save' })
+      ).not.toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+
+      expect(
+        within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' })
+      ).toBeInTheDocument()
+      expect(within(rowFor('Rent budget amount')).queryByText('Saved ✓')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('rejects an invalid amount client-side without calling the API', async () => {

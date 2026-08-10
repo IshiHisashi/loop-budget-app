@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import {
   createExpense,
@@ -71,6 +71,40 @@ function ExpenseLog() {
   const [newDraft, setNewDraft] = useState<Draft>(emptyDraft)
   const [addStatus, setAddStatus] = useState<RowStatus>({ kind: 'idle' })
 
+  const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  useEffect(() => {
+    const rowTimers = rowSuccessTimers.current
+    return () => {
+      clearTimeout(addSuccessTimer.current)
+      Object.values(rowTimers).forEach(clearTimeout)
+    }
+  }, [])
+
+  function clearRowSuccessTimer(id: string) {
+    const timer = rowSuccessTimers.current[id]
+    if (timer) {
+      clearTimeout(timer)
+      delete rowSuccessTimers.current[id]
+    }
+  }
+
+  function scheduleRowSuccessReset(id: string) {
+    clearRowSuccessTimer(id)
+    rowSuccessTimers.current[id] = setTimeout(() => {
+      delete rowSuccessTimers.current[id]
+      setRowStatus((prev) => ({ ...prev, [id]: { kind: 'idle' } }))
+    }, 3000)
+  }
+
+  function scheduleAddSuccessReset() {
+    clearTimeout(addSuccessTimer.current)
+    addSuccessTimer.current = setTimeout(() => {
+      setAddStatus({ kind: 'idle' })
+    }, 3000)
+  }
+
   useEffect(() => {
     Promise.all([getCategories(), getExpenses()])
       .then(([categoriesResult, expensesResult]) => {
@@ -90,6 +124,7 @@ function ExpenseLog() {
   }
 
   async function handleAdd() {
+    clearTimeout(addSuccessTimer.current)
     const parsed = parseDraft(newDraft)
     if (!parsed) {
       setAddStatus({ kind: 'error', message: 'Enter a date, category, and a positive amount' })
@@ -103,12 +138,14 @@ function ExpenseLog() {
       setEdits((prev) => ({ ...prev, [created._id]: toDraft(created) }))
       setNewDraft((prev) => ({ ...emptyDraft, date: prev.date, category: prev.category }))
       setAddStatus({ kind: 'success' })
+      scheduleAddSuccessReset()
     } catch (err) {
       setAddStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
     }
   }
 
   async function handleSaveRow(id: string) {
+    clearRowSuccessTimer(id)
     const draft = edits[id]
     const parsed = draft && parseDraft(draft)
     if (!parsed) {
@@ -127,6 +164,7 @@ function ExpenseLog() {
       )
       setEdits((prev) => ({ ...prev, [id]: toDraft(updated) }))
       setRowStatus((prev) => ({ ...prev, [id]: { kind: 'success' } }))
+      scheduleRowSuccessReset(id)
     } catch (err) {
       setRowStatus((prev) => ({
         ...prev,
@@ -136,6 +174,7 @@ function ExpenseLog() {
   }
 
   async function handleDeleteRow(id: string) {
+    clearRowSuccessTimer(id)
     setRowStatus((prev) => ({ ...prev, [id]: { kind: 'saving' } }))
     try {
       await deleteExpense(id)
@@ -246,18 +285,25 @@ function ExpenseLog() {
             className={inputClassName}
           />
         </label>
-        <button
-          type="submit"
-          disabled={addStatus.kind === 'saving'}
-          className={primaryButtonClassName}
-        >
-          Add
-        </button>
-        <span aria-live="polite" className={statusTextClassName(addStatus)}>
-          {addStatus.kind === 'saving' && 'Saving…'}
-          {addStatus.kind === 'success' && 'Added ✓'}
-          {addStatus.kind === 'error' && addStatus.message}
-        </span>
+        {addStatus.kind === 'success' ? (
+          <span aria-live="polite" className={statusTextClassName(addStatus)}>
+            Added ✓
+          </span>
+        ) : (
+          <>
+            <button
+              type="submit"
+              disabled={addStatus.kind === 'saving'}
+              className={primaryButtonClassName}
+            >
+              Add
+            </button>
+            <span aria-live="polite" className={statusTextClassName(addStatus)}>
+              {addStatus.kind === 'saving' && 'Saving…'}
+              {addStatus.kind === 'error' && addStatus.message}
+            </span>
+          </>
+        )}
       </form>
 
       <ul className="flex list-none flex-col gap-2 p-0">
@@ -305,27 +351,34 @@ function ExpenseLog() {
                 onChange={(event) => handleEditChange(expense._id, 'note', event.target.value)}
                 className={`${inputClassName} flex-1`}
               />
-              <button
-                type="button"
-                onClick={() => handleSaveRow(expense._id)}
-                disabled={saving}
-                className={primaryButtonClassName}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteRow(expense._id)}
-                disabled={saving}
-                className={secondaryButtonClassName}
-              >
-                Delete
-              </button>
-              <span aria-live="polite" className={statusTextClassName(status)}>
-                {status.kind === 'saving' && 'Saving…'}
-                {status.kind === 'success' && 'Saved ✓'}
-                {status.kind === 'error' && status.message}
-              </span>
+              {status.kind === 'success' ? (
+                <span aria-live="polite" className={statusTextClassName(status)}>
+                  Saved ✓
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveRow(expense._id)}
+                    disabled={saving}
+                    className={primaryButtonClassName}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRow(expense._id)}
+                    disabled={saving}
+                    className={secondaryButtonClassName}
+                  >
+                    Delete
+                  </button>
+                  <span aria-live="polite" className={statusTextClassName(status)}>
+                    {status.kind === 'saving' && 'Saving…'}
+                    {status.kind === 'error' && status.message}
+                  </span>
+                </>
+              )}
             </li>
           )
         })}
