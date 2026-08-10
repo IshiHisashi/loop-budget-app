@@ -8,6 +8,12 @@ type RowStatus =
   | { kind: 'success' }
   | { kind: 'error'; message: string }
 
+function statusTextClassName(status: RowStatus): string {
+  if (status.kind === 'success') return 'text-sm text-green-600 dark:text-green-400'
+  if (status.kind === 'error') return 'text-sm text-red-600 dark:text-red-400'
+  return 'text-sm text-neutral-600 dark:text-neutral-400'
+}
+
 function BudgetSetup() {
   const [categories, setCategories] = useState<Category[]>([])
   const [budgets, setBudgets] = useState<Budget[]>([])
@@ -143,7 +149,7 @@ function BudgetSetup() {
               >
                 Clear
               </button>
-              <span aria-live="polite" className="text-sm text-neutral-600 dark:text-neutral-400">
+              <span aria-live="polite" className={statusTextClassName(status)}>
                 {status.kind === 'saving' && 'Saving…'}
                 {status.kind === 'success' && 'Saved ✓'}
                 {status.kind === 'error' && status.message}
