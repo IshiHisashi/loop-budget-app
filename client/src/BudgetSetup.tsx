@@ -115,10 +115,8 @@ function BudgetSetup() {
 
           return (
             <li key={category._id} className="flex flex-wrap items-center gap-2">
-              <label className="flex flex-1 items-center gap-2">
-                <span className="min-w-24 text-neutral-900 dark:text-neutral-100">
-                  {category.name}
-                </span>
+              <label className="flex flex-1 items-center gap-2 text-neutral-900 dark:text-neutral-100">
+                {category.name}
                 <input
                   type="number"
                   min="0"

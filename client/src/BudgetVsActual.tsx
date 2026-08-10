@@ -47,8 +47,7 @@ function BudgetVsActual() {
           type="month"
           value={month}
           onChange={(event) => setMonth(event.target.value)}
-          className="w-fit rounded border border-neutral-300 px-2 py-1 focus:outline-none
-            focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800"
+          className="w-fit rounded border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800"
         />
       </label>
 
