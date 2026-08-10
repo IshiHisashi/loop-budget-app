@@ -21,6 +21,10 @@ reachable beyond just the owner's own machine.
 - **Single-user login**: gate access behind one fixed id/password
   credential (no accounts, no signup, no multi-user support — just a
   login screen standing between the app and whoever reaches it).
+  Budget/expense records are tagged with the authenticated identity
+  (`userId`) as a defense-in-depth measure — data access stays scoped
+  to the logged-in session rather than relying solely on route-level
+  auth — not as groundwork for multiple accounts.
 - **Monthly budgets**: set a budget amount split across categories, per
   month.
 - **Categories**: predefined categories available out of the box (e.g.
@@ -37,8 +41,11 @@ reachable beyond just the owner's own machine.
 Explicit, so the loop doesn't scope-creep during planning:
 
 - Bank/account sync or auto-imported transactions
-- Multi-user support (accounts, signup, per-user data) — single-user
-  login itself is in scope, see Core v1 features
+- Multi-user support (accounts, signup, multiple distinct users'
+  data) — single-user login itself is in scope, see Core v1 features.
+  Tagging records with the single authenticated identity's `userId`
+  for defense-in-depth (see Core v1 features) is not multi-user
+  support — there is still exactly one possible identity.
 - Multi-device sync
 - Mobile app
 - Recurring-transaction automation
