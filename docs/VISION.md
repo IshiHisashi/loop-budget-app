@@ -23,7 +23,8 @@ login, no multi-user support needed.
   Food, Rent, Transport, Entertainment, Utilities), plus the ability to
   add fully custom categories.
 - **Manual expense logging**: log individual spending entries — date,
-  amount, category, optional note.
+  amount, category, optional note. Browse logged entries scoped to a
+  given month, including a calendar view of that month's entries.
 - **Budget vs actual**: view actual spend against budget, per category,
   per month.
 
