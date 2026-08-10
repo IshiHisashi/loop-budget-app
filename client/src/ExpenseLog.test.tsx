@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ExpenseLog from './ExpenseLog.tsx'
 
@@ -167,6 +167,59 @@ describe('ExpenseLog', () => {
     })
 
     await within(foodRow).findByText('Saved ✓')
+  })
+
+  it('replaces row Save/Delete with the success message, then restores them after 3 seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<ExpenseLog />)
+      await screen.findByDisplayValue('50')
+
+      const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+      fireEvent.change(within(foodRow).getByLabelText('Expense amount'), {
+        target: { value: '65' },
+      })
+      fireEvent.click(within(foodRow).getByRole('button', { name: 'Save' }))
+
+      await within(foodRow).findByText('Saved ✓')
+      expect(within(foodRow).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+      expect(within(foodRow).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+
+      expect(within(foodRow).getByRole('button', { name: 'Save' })).toBeInTheDocument()
+      expect(within(foodRow).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+      expect(within(foodRow).queryByText('Saved ✓')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('replaces Add with the success message, then restores it after 3 seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<ExpenseLog />)
+      await screen.findByDisplayValue('50')
+
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
+      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+      fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'cat2' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await screen.findByText('Added ✓')
+      expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+
+      expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
+      expect(screen.queryByText('Added ✓')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('clears a note via inline edit', async () => {

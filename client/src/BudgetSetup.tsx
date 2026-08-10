@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import { Budget, deleteBudget, getBudgets, setBudget } from './api/budgets.ts'
 
@@ -22,6 +22,8 @@ function BudgetSetup() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const successTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
   useEffect(() => {
     Promise.all([getCategories(), getBudgets()])
       .then(([categoriesResult, budgetsResult]) => {
@@ -35,11 +37,35 @@ function BudgetSetup() {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    const timers = successTimers.current
+    return () => {
+      Object.values(timers).forEach(clearTimeout)
+    }
+  }, [])
+
+  function clearSuccessTimer(categoryId: string) {
+    const timer = successTimers.current[categoryId]
+    if (timer) {
+      clearTimeout(timer)
+      delete successTimers.current[categoryId]
+    }
+  }
+
+  function scheduleSuccessReset(categoryId: string) {
+    clearSuccessTimer(categoryId)
+    successTimers.current[categoryId] = setTimeout(() => {
+      delete successTimers.current[categoryId]
+      setRowStatus((prev) => ({ ...prev, [categoryId]: { kind: 'idle' } }))
+    }, 3000)
+  }
+
   function handleDraftChange(categoryId: string, value: string) {
     setDrafts((prev) => ({ ...prev, [categoryId]: value }))
   }
 
   async function handleSave(categoryId: string) {
+    clearSuccessTimer(categoryId)
     const draft = (drafts[categoryId] ?? '').trim()
     const amount = Number(draft)
 
@@ -58,6 +84,7 @@ function BudgetSetup() {
       setBudgets((prev) => [...prev.filter((budget) => budget.category !== categoryId), updated])
       setDrafts((prev) => ({ ...prev, [categoryId]: String(updated.amount) }))
       setRowStatus((prev) => ({ ...prev, [categoryId]: { kind: 'success' } }))
+      scheduleSuccessReset(categoryId)
     } catch (err) {
       setRowStatus((prev) => ({
         ...prev,
@@ -67,6 +94,7 @@ function BudgetSetup() {
   }
 
   async function handleClear(categoryId: string) {
+    clearSuccessTimer(categoryId)
     setRowStatus((prev) => ({ ...prev, [categoryId]: { kind: 'saving' } }))
 
     try {
@@ -74,6 +102,7 @@ function BudgetSetup() {
       setBudgets((prev) => prev.filter((budget) => budget.category !== categoryId))
       setDrafts((prev) => ({ ...prev, [categoryId]: '' }))
       setRowStatus((prev) => ({ ...prev, [categoryId]: { kind: 'success' } }))
+      scheduleSuccessReset(categoryId)
     } catch (err) {
       setRowStatus((prev) => ({
         ...prev,
@@ -133,27 +162,34 @@ function BudgetSetup() {
                   className={inputClassName}
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => handleSave(category._id)}
-                disabled={saving}
-                className={primaryButtonClassName}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => handleClear(category._id)}
-                disabled={saving || !hasExisting}
-                className={secondaryButtonClassName}
-              >
-                Clear
-              </button>
-              <span aria-live="polite" className={statusTextClassName(status)}>
-                {status.kind === 'saving' && 'Saving…'}
-                {status.kind === 'success' && 'Saved ✓'}
-                {status.kind === 'error' && status.message}
-              </span>
+              {status.kind === 'success' ? (
+                <span aria-live="polite" className={statusTextClassName(status)}>
+                  Saved ✓
+                </span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSave(category._id)}
+                    disabled={saving}
+                    className={primaryButtonClassName}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClear(category._id)}
+                    disabled={saving || !hasExisting}
+                    className={secondaryButtonClassName}
+                  >
+                    Clear
+                  </button>
+                  <span aria-live="polite" className={statusTextClassName(status)}>
+                    {status.kind === 'saving' && 'Saving…'}
+                    {status.kind === 'error' && status.message}
+                  </span>
+                </>
+              )}
             </li>
           )
         })}
