@@ -71,7 +71,7 @@ function ExpenseLog() {
   const [newDraft, setNewDraft] = useState<Draft>(emptyDraft)
   const [addStatus, setAddStatus] = useState<RowStatus>({ kind: 'idle' })
 
-  const addSuccessTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   useEffect(() => {
