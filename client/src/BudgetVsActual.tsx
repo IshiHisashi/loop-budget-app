@@ -82,11 +82,16 @@ function BudgetVsActual() {
               const budgeted = row?.budgeted ?? 0
               const actual = row?.actual ?? 0
               const difference = Math.round((budgeted - actual) * 100) / 100
+              const overBudget = difference < 0
 
               return (
                 <tr
                   key={category._id}
-                  className="even:bg-neutral-50 dark:even:bg-neutral-800/50"
+                  className={
+                    overBudget
+                      ? 'bg-red-50 dark:bg-red-900/20'
+                      : 'even:bg-neutral-50 dark:even:bg-neutral-800/50'
+                  }
                 >
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
                     {category.name}
@@ -97,7 +102,11 @@ function BudgetVsActual() {
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
                     {actual}
                   </td>
-                  <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                  <td
+                    className={`border-b border-neutral-200 px-3 py-2 dark:border-neutral-700 ${
+                      overBudget ? 'font-medium text-red-600 dark:text-red-400' : ''
+                    }`}
+                  >
                     {difference}
                   </td>
                 </tr>

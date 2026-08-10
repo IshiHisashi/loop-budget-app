@@ -26,6 +26,13 @@ function mockFetch() {
       ])
     }
 
+    if (url.includes('/api/budget-vs-actual?month=2026-03')) {
+      return jsonResponse([
+        { category: 'cat1', budgeted: 300, actual: 350 },
+        { category: 'cat2', budgeted: 1200, actual: 1000 },
+      ])
+    }
+
     if (url.includes('/api/budget-vs-actual?month=')) {
       return jsonResponse([
         { category: 'cat1', budgeted: 300, actual: 245.5 },
@@ -80,5 +87,31 @@ describe('BudgetVsActual', () => {
       const foodRow = screen.getByText('Food').closest('tr') as HTMLElement
       expect(cellTexts(foodRow)).toEqual(['Food', '300', '100', '200'])
     })
+  })
+
+  it('flags an over-budget row with red styling, leaves an under-budget row unstyled', async () => {
+    render(<BudgetVsActual />)
+    await screen.findByText('Food')
+
+    const monthInput = screen.getByLabelText('Month')
+    fireEvent.change(monthInput, { target: { value: '2026-03' } })
+
+    await waitFor(() => {
+      const foodRow = screen.getByText('Food').closest('tr') as HTMLElement
+      expect(cellTexts(foodRow)).toEqual(['Food', '300', '350', '-50'])
+    })
+
+    const foodRow = screen.getByText('Food').closest('tr') as HTMLElement
+    const rentRow = screen.getByText('Rent').closest('tr') as HTMLElement
+    const foodDifferenceCell = within(foodRow).getAllByRole('cell')[3]
+    const rentDifferenceCell = within(rentRow).getAllByRole('cell')[3]
+
+    expect(foodRow.className).toContain('bg-red-50')
+    expect(foodRow.className).toContain('dark:bg-red-900/20')
+    expect(foodDifferenceCell.className).toContain('text-red-600')
+    expect(foodDifferenceCell.className).toContain('dark:text-red-400')
+
+    expect(rentRow.className).not.toContain('bg-red-50')
+    expect(rentDifferenceCell.className).not.toContain('text-red-600')
   })
 })
