@@ -15,6 +15,12 @@ type RowStatus =
   | { kind: 'success' }
   | { kind: 'error'; message: string }
 
+function statusTextClassName(status: RowStatus): string {
+  if (status.kind === 'success') return 'text-sm text-green-600 dark:text-green-400'
+  if (status.kind === 'error') return 'text-sm text-red-600 dark:text-red-400'
+  return 'text-sm text-neutral-600 dark:text-neutral-400'
+}
+
 interface Draft {
   date: string
   amount: string
@@ -247,7 +253,7 @@ function ExpenseLog() {
         >
           Add
         </button>
-        <span aria-live="polite" className="text-sm text-neutral-600 dark:text-neutral-400">
+        <span aria-live="polite" className={statusTextClassName(addStatus)}>
           {addStatus.kind === 'saving' && 'Saving…'}
           {addStatus.kind === 'success' && 'Added ✓'}
           {addStatus.kind === 'error' && addStatus.message}
@@ -315,7 +321,7 @@ function ExpenseLog() {
               >
                 Delete
               </button>
-              <span aria-live="polite" className="text-sm text-neutral-600 dark:text-neutral-400">
+              <span aria-live="polite" className={statusTextClassName(status)}>
                 {status.kind === 'saving' && 'Saving…'}
                 {status.kind === 'success' && 'Saved ✓'}
                 {status.kind === 'error' && status.message}
