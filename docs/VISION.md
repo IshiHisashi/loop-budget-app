@@ -12,11 +12,15 @@ Track monthly spending against a personal budget, logged manually.
 
 ## Target user
 
-The repo owner, single device, single browser session. No accounts, no
-login, no multi-user support needed.
+The repo owner, single device, single browser session. No multi-user
+support needed — but the app is gated behind a login, since it may be
+reachable beyond just the owner's own machine.
 
 ## Core v1 features
 
+- **Single-user login**: gate access behind one fixed id/password
+  credential (no accounts, no signup, no multi-user support — just a
+  login screen standing between the app and whoever reaches it).
 - **Monthly budgets**: set a budget amount split across categories, per
   month.
 - **Categories**: predefined categories available out of the box (e.g.
@@ -33,7 +37,8 @@ login, no multi-user support needed.
 Explicit, so the loop doesn't scope-creep during planning:
 
 - Bank/account sync or auto-imported transactions
-- Multi-user support or authentication
+- Multi-user support (accounts, signup, per-user data) — single-user
+  login itself is in scope, see Core v1 features
 - Multi-device sync
 - Mobile app
 - Recurring-transaction automation
