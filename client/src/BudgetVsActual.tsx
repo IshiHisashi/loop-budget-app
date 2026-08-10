@@ -41,30 +41,39 @@ function BudgetVsActual() {
       <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
         Budget vs actual
       </h2>
-      <label>
+      <label className="flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
         Month
         <input
           type="month"
           value={month}
           onChange={(event) => setMonth(event.target.value)}
+          className="w-fit rounded border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800"
         />
       </label>
 
-      {loading && <p className="text-neutral-600 dark:text-neutral-400">Loading…</p>}
+      {loading && <p className="mt-4 text-neutral-600 dark:text-neutral-400">Loading…</p>}
       {loadError && (
-        <p role="alert" className="text-neutral-600 dark:text-neutral-400">
+        <p role="alert" className="mt-4 text-neutral-600 dark:text-neutral-400">
           {loadError}
         </p>
       )}
 
       {!loading && !loadError && (
-        <table>
+        <table className="mt-4 w-full border-collapse text-left">
           <thead>
-            <tr>
-              <th>Category</th>
-              <th>Budgeted</th>
-              <th>Actual</th>
-              <th>Difference</th>
+            <tr className="bg-neutral-100 dark:bg-neutral-800">
+              <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                Category
+              </th>
+              <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                Budgeted
+              </th>
+              <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                Actual
+              </th>
+              <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                Difference
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -75,11 +84,22 @@ function BudgetVsActual() {
               const difference = Math.round((budgeted - actual) * 100) / 100
 
               return (
-                <tr key={category._id}>
-                  <td>{category.name}</td>
-                  <td>{budgeted}</td>
-                  <td>{actual}</td>
-                  <td>{difference}</td>
+                <tr
+                  key={category._id}
+                  className="even:bg-neutral-50 dark:even:bg-neutral-800/50"
+                >
+                  <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                    {category.name}
+                  </td>
+                  <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                    {budgeted}
+                  </td>
+                  <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                    {actual}
+                  </td>
+                  <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                    {difference}
+                  </td>
                 </tr>
               )
             })}
