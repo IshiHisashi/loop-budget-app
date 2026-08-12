@@ -561,4 +561,67 @@ describe('ExpenseLog', () => {
     expect(screen.queryByDisplayValue('65')).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
+
+  it('renders the calendar above the expense table', async () => {
+    const { container } = render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+
+    const calendarGrid = container.querySelector('.grid') as HTMLElement
+    const table = screen.getByRole('list')
+    expect(calendarGrid).not.toBeNull()
+    expect(
+      calendarGrid.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
+  it('filters the table to the selected day when a calendar day is clicked, and clears via the Clear control', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
+    await screen.findByDisplayValue('50')
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+
+    fireEvent.click(screen.getByRole('button', { name: /^20\$50\.00$/ }))
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByDisplayValue('50')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('1200')).not.toBeInTheDocument()
+    expect(screen.getByText(/Showing 2026-01-20/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Clear'))
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+  })
+
+  it('toggles the day filter off when clicking the already-selected day again', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
+    await screen.findByDisplayValue('50')
+
+    const dayButton = screen.getByRole('button', { name: /^20\$50\.00$/ })
+    fireEvent.click(dayButton)
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+
+    fireEvent.click(dayButton)
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('clears an active day filter when the month changes', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
+    await screen.findByDisplayValue('50')
+
+    fireEvent.click(screen.getByRole('button', { name: /^20\$50\.00$/ }))
+    expect(screen.getByText(/Showing 2026-01-20/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-02' } })
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+    })
+  })
 })

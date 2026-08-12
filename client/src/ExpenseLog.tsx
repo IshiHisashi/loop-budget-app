@@ -9,6 +9,7 @@ import {
   updateExpense,
 } from './api/expenses.ts'
 import { currentMonth } from './dateUtils.ts'
+import ExpenseCalendar from './ExpenseCalendar.tsx'
 
 type RowStatus =
   | { kind: 'idle' }
@@ -63,6 +64,7 @@ const emptyDraft: Draft = {
 
 function ExpenseLog() {
   const [month, setMonth] = useState(currentMonth())
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [edits, setEdits] = useState<Record<string, Draft>>({})
@@ -116,6 +118,7 @@ function ExpenseLog() {
     let cancelled = false
     setLoading(true)
     setLoadError(null)
+    setSelectedDay(null)
     Promise.all([getCategories(), getExpenses(month)])
       .then(([categoriesResult, expensesResult]) => {
         if (cancelled) return
@@ -268,6 +271,26 @@ function ExpenseLog() {
 
       {!loading && !loadError && (
         <>
+          <ExpenseCalendar
+            month={month}
+            expenses={expenses}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+          />
+
+          {selectedDay && (
+            <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+              Showing {selectedDay} ·{' '}
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="underline hover:text-neutral-900 dark:hover:text-neutral-100"
+              >
+                Clear
+              </button>
+            </p>
+          )}
+
           <form
             onSubmit={(event) => {
               event.preventDefault()
@@ -351,87 +374,89 @@ function ExpenseLog() {
           </form>
 
           <ul className="flex list-none flex-col gap-2 p-0">
-            {expenses.map((expense) => {
-              const draft = edits[expense._id] ?? toDraft(expense)
-              const status = rowStatus[expense._id] ?? { kind: 'idle' }
-              const saving = status.kind === 'saving'
+            {expenses
+              .filter((expense) => !selectedDay || expense.date.slice(0, 10) === selectedDay)
+              .map((expense) => {
+                const draft = edits[expense._id] ?? toDraft(expense)
+                const status = rowStatus[expense._id] ?? { kind: 'idle' }
+                const saving = status.kind === 'saving'
 
-              return (
-                <li key={expense._id} className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="date"
-                    aria-label="Expense date"
-                    value={draft.date}
-                    onChange={(event) =>
-                      handleEditChange(expense._id, 'date', event.target.value)
-                    }
-                    className={inputClassName}
-                  />
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    aria-label="Expense amount"
-                    value={draft.amount}
-                    onChange={(event) =>
-                      handleEditChange(expense._id, 'amount', event.target.value)
-                    }
-                    className={`${inputClassName} w-24`}
-                  />
-                  <select
-                    aria-label="Expense category"
-                    value={draft.category}
-                    onChange={(event) =>
-                      handleEditChange(expense._id, 'category', event.target.value)
-                    }
-                    className={inputClassName}
-                  >
-                    {categories.map((category) => (
-                      <option key={category._id} value={category._id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    aria-label="Expense note"
-                    value={draft.note}
-                    onChange={(event) =>
-                      handleEditChange(expense._id, 'note', event.target.value)
-                    }
-                    className={`${inputClassName} flex-1`}
-                  />
-                  {status.kind === 'success' ? (
-                    <span aria-live="polite" className={statusTextClassName(status)}>
-                      Saved ✓
-                    </span>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveRow(expense._id)}
-                        disabled={saving}
-                        className={primaryButtonClassName}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRow(expense._id)}
-                        disabled={saving}
-                        className={secondaryButtonClassName}
-                      >
-                        Delete
-                      </button>
+                return (
+                  <li key={expense._id} className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      aria-label="Expense date"
+                      value={draft.date}
+                      onChange={(event) =>
+                        handleEditChange(expense._id, 'date', event.target.value)
+                      }
+                      className={inputClassName}
+                    />
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      aria-label="Expense amount"
+                      value={draft.amount}
+                      onChange={(event) =>
+                        handleEditChange(expense._id, 'amount', event.target.value)
+                      }
+                      className={`${inputClassName} w-24`}
+                    />
+                    <select
+                      aria-label="Expense category"
+                      value={draft.category}
+                      onChange={(event) =>
+                        handleEditChange(expense._id, 'category', event.target.value)
+                      }
+                      className={inputClassName}
+                    >
+                      {categories.map((category) => (
+                        <option key={category._id} value={category._id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      aria-label="Expense note"
+                      value={draft.note}
+                      onChange={(event) =>
+                        handleEditChange(expense._id, 'note', event.target.value)
+                      }
+                      className={`${inputClassName} flex-1`}
+                    />
+                    {status.kind === 'success' ? (
                       <span aria-live="polite" className={statusTextClassName(status)}>
-                        {status.kind === 'saving' && 'Saving…'}
-                        {status.kind === 'error' && status.message}
+                        Saved ✓
                       </span>
-                    </>
-                  )}
-                </li>
-              )
-            })}
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveRow(expense._id)}
+                          disabled={saving}
+                          className={primaryButtonClassName}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(expense._id)}
+                          disabled={saving}
+                          className={secondaryButtonClassName}
+                        >
+                          Delete
+                        </button>
+                        <span aria-live="polite" className={statusTextClassName(status)}>
+                          {status.kind === 'saving' && 'Saving…'}
+                          {status.kind === 'error' && status.message}
+                        </span>
+                      </>
+                    )}
+                  </li>
+                )
+              })}
           </ul>
         </>
       )}
