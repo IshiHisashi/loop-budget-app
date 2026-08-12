@@ -75,6 +75,11 @@ function ExpenseLog() {
 
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const monthRef = useRef(month)
+
+  useEffect(() => {
+    monthRef.current = month
+  }, [month])
 
   useEffect(() => {
     const rowTimers = rowSuccessTimers.current
@@ -149,7 +154,7 @@ function ExpenseLog() {
     setAddStatus({ kind: 'saving' })
     try {
       const created = await createExpense(parsed)
-      if (created.date.slice(0, 7) === month) {
+      if (created.date.slice(0, 7) === monthRef.current) {
         setExpenses((prev) => sortByDateDesc([...prev, created]))
         setEdits((prev) => ({ ...prev, [created._id]: toDraft(created) }))
       }
@@ -176,7 +181,7 @@ function ExpenseLog() {
     setRowStatus((prev) => ({ ...prev, [id]: { kind: 'saving' } }))
     try {
       const updated = await updateExpense(id, parsed)
-      if (updated.date.slice(0, 7) === month) {
+      if (updated.date.slice(0, 7) === monthRef.current) {
         setExpenses((prev) =>
           sortByDateDesc(prev.map((expense) => (expense._id === id ? updated : expense)))
         )

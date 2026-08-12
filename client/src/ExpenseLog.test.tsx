@@ -417,4 +417,148 @@ describe('ExpenseLog', () => {
     })
     expect(screen.queryByDisplayValue('11')).not.toBeInTheDocument()
   })
+
+  it('does not let an in-flight add land in a different month after switching', async () => {
+    let resolvePost: (value: Response) => void
+    const postPromise = new Promise<Response>((resolve) => {
+      resolvePost = resolve
+    })
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=2026-01') && method === 'GET') {
+        return jsonResponse([])
+      }
+      if (url.includes('/api/expenses?month=2026-02') && method === 'GET') {
+        return jsonResponse([
+          {
+            _id: 'exp-feb',
+            date: '2026-02-10T00:00:00.000Z',
+            amount: 99,
+            category: 'cat1',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ])
+      }
+      if (url.endsWith('/api/expenses') && method === 'POST') {
+        return postPromise
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse([])
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    const monthInput = await screen.findByLabelText('Month')
+    fireEvent.change(monthInput, { target: { value: '2026-01' } })
+    await screen.findByRole('button', { name: 'Add' })
+
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'cat1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    fireEvent.change(monthInput, { target: { value: '2026-02' } })
+    await screen.findByDisplayValue('99')
+
+    resolvePost!(
+      jsonResponse(
+        {
+          _id: 'exp-new',
+          date: '2026-01-25T00:00:00.000Z',
+          amount: 75,
+          category: 'cat1',
+          createdAt: '',
+          updatedAt: '',
+        },
+        201
+      )
+    )
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('99')).toBeInTheDocument()
+    })
+    expect(screen.queryByDisplayValue('75')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('does not let an in-flight edit land in a different month after switching', async () => {
+    let resolvePatch: (value: Response) => void
+    const patchPromise = new Promise<Response>((resolve) => {
+      resolvePatch = resolve
+    })
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=2026-01') && method === 'GET') {
+        return jsonResponse(janExpenses.filter((expense) => expense._id === 'exp-food'))
+      }
+      if (url.includes('/api/expenses?month=2026-02') && method === 'GET') {
+        return jsonResponse([
+          {
+            _id: 'exp-feb',
+            date: '2026-02-10T00:00:00.000Z',
+            amount: 99,
+            category: 'cat1',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ])
+      }
+      if (url.endsWith('/api/expenses/exp-food') && method === 'PATCH') {
+        return patchPromise
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse([])
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    const monthInput = await screen.findByLabelText('Month')
+    fireEvent.change(monthInput, { target: { value: '2026-01' } })
+    await screen.findByDisplayValue('50')
+
+    fireEvent.change(screen.getByLabelText('Expense amount'), { target: { value: '65' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    fireEvent.change(monthInput, { target: { value: '2026-02' } })
+    await screen.findByDisplayValue('99')
+
+    resolvePatch!(
+      jsonResponse({
+        _id: 'exp-food',
+        date: '2026-01-20T00:00:00.000Z',
+        amount: 65,
+        category: 'cat1',
+        note: 'Groceries',
+        createdAt: '',
+        updatedAt: '',
+      })
+    )
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('99')).toBeInTheDocument()
+    })
+    expect(screen.queryByDisplayValue('65')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+  })
 })
