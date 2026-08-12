@@ -2,18 +2,20 @@ import { Request, Response, Router } from 'express'
 import Budget from '../models/Budget.js'
 import Category from '../models/Category.js'
 import Expense from '../models/Expense.js'
+import { parseMonthRange } from '../utils/monthRange.js'
 
 const router = Router()
 
 router.get('/', async (req: Request, res: Response) => {
   const month = req.query.month
-  if (typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+  if (typeof month !== 'string') {
     return res.status(400).json({ error: 'month must be in YYYY-MM format' })
   }
-
-  const [year, monthNumber] = month.split('-').map(Number)
-  const start = new Date(Date.UTC(year, monthNumber - 1, 1))
-  const end = new Date(Date.UTC(year, monthNumber, 1))
+  const range = parseMonthRange(month)
+  if (!range) {
+    return res.status(400).json({ error: 'month must be in YYYY-MM format' })
+  }
+  const { start, end } = range
 
   const [categories, budgets, expenses] = await Promise.all([
     Category.find(),

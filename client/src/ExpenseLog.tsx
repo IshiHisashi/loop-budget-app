@@ -8,6 +8,7 @@ import {
   getExpenses,
   updateExpense,
 } from './api/expenses.ts'
+import { currentMonth } from './dateUtils.ts'
 
 type RowStatus =
   | { kind: 'idle' }
@@ -61,6 +62,7 @@ const emptyDraft: Draft = {
 }
 
 function ExpenseLog() {
+  const [month, setMonth] = useState(currentMonth())
   const [categories, setCategories] = useState<Category[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [edits, setEdits] = useState<Record<string, Draft>>({})
@@ -73,6 +75,11 @@ function ExpenseLog() {
 
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const monthRef = useRef(month)
+
+  useEffect(() => {
+    monthRef.current = month
+  }, [month])
 
   useEffect(() => {
     const rowTimers = rowSuccessTimers.current
@@ -106,8 +113,12 @@ function ExpenseLog() {
   }
 
   useEffect(() => {
-    Promise.all([getCategories(), getExpenses()])
+    let cancelled = false
+    setLoading(true)
+    setLoadError(null)
+    Promise.all([getCategories(), getExpenses(month)])
       .then(([categoriesResult, expensesResult]) => {
+        if (cancelled) return
         setCategories(categoriesResult)
         setExpenses(expensesResult)
         setEdits(
@@ -115,9 +126,18 @@ function ExpenseLog() {
         )
         setNewDraft((prev) => ({ ...prev, category: categoriesResult[0]?._id ?? '' }))
       })
-      .catch((err: unknown) => setLoadError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false))
-  }, [])
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setLoadError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [month])
 
   function handleEditChange(id: string, field: keyof Draft, value: string) {
     setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
@@ -134,8 +154,10 @@ function ExpenseLog() {
     setAddStatus({ kind: 'saving' })
     try {
       const created = await createExpense(parsed)
-      setExpenses((prev) => sortByDateDesc([...prev, created]))
-      setEdits((prev) => ({ ...prev, [created._id]: toDraft(created) }))
+      if (created.date.slice(0, 7) === monthRef.current) {
+        setExpenses((prev) => sortByDateDesc([...prev, created]))
+        setEdits((prev) => ({ ...prev, [created._id]: toDraft(created) }))
+      }
       setNewDraft((prev) => ({ ...emptyDraft, date: prev.date, category: prev.category }))
       setAddStatus({ kind: 'success' })
       scheduleAddSuccessReset()
@@ -159,12 +181,26 @@ function ExpenseLog() {
     setRowStatus((prev) => ({ ...prev, [id]: { kind: 'saving' } }))
     try {
       const updated = await updateExpense(id, parsed)
-      setExpenses((prev) =>
-        sortByDateDesc(prev.map((expense) => (expense._id === id ? updated : expense)))
-      )
-      setEdits((prev) => ({ ...prev, [id]: toDraft(updated) }))
-      setRowStatus((prev) => ({ ...prev, [id]: { kind: 'success' } }))
-      scheduleRowSuccessReset(id)
+      if (updated.date.slice(0, 7) === monthRef.current) {
+        setExpenses((prev) =>
+          sortByDateDesc(prev.map((expense) => (expense._id === id ? updated : expense)))
+        )
+        setEdits((prev) => ({ ...prev, [id]: toDraft(updated) }))
+        setRowStatus((prev) => ({ ...prev, [id]: { kind: 'success' } }))
+        scheduleRowSuccessReset(id)
+      } else {
+        setExpenses((prev) => prev.filter((expense) => expense._id !== id))
+        setEdits((prev) => {
+          const next = { ...prev }
+          delete next[id]
+          return next
+        })
+        setRowStatus((prev) => {
+          const next = { ...prev }
+          delete next[id]
+          return next
+        })
+      }
     } catch (err) {
       setRowStatus((prev) => ({
         ...prev,
@@ -207,182 +243,198 @@ function ExpenseLog() {
   const secondaryButtonClassName =
     'rounded-lg border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800'
 
-  if (loading) {
-    return (
-      <div className={cardClassName}>
-        <p className="text-neutral-600 dark:text-neutral-400">Loading…</p>
-      </div>
-    )
-  }
-  if (loadError) {
-    return (
-      <div className={cardClassName}>
-        <p role="alert" className="text-neutral-600 dark:text-neutral-400">
-          {loadError}
-        </p>
-      </div>
-    )
-  }
-
   return (
     <section className={cardClassName}>
       <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
         Expenses
       </h2>
 
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          handleAdd()
-        }}
-        className="mb-6 flex flex-wrap items-end gap-3 border-b border-neutral-200 pb-6 dark:border-neutral-700"
-      >
-        <label className={labelClassName}>
-          Date
-          <input
-            type="date"
-            value={newDraft.date}
-            onChange={(event) => setNewDraft((prev) => ({ ...prev, date: event.target.value }))}
-            className={inputClassName}
-          />
-        </label>
-        <label className={labelClassName}>
-          Amount
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={newDraft.amount}
-            onChange={(event) => setNewDraft((prev) => ({ ...prev, amount: event.target.value }))}
-            className={inputClassName}
-          />
-        </label>
-        <label className={labelClassName}>
-          Category
-          <select
-            value={newDraft.category}
-            onChange={(event) =>
-              setNewDraft((prev) => ({ ...prev, category: event.target.value }))
-            }
-            className={inputClassName}
+      <label className={`${labelClassName} mb-6`}>
+        Month
+        <input
+          type="month"
+          value={month}
+          onChange={(event) => setMonth(event.target.value)}
+          className={`w-fit ${inputClassName}`}
+        />
+      </label>
+
+      {loading && <p className="text-neutral-600 dark:text-neutral-400">Loading…</p>}
+      {loadError && (
+        <p role="alert" className="text-neutral-600 dark:text-neutral-400">
+          {loadError}
+        </p>
+      )}
+
+      {!loading && !loadError && (
+        <>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              handleAdd()
+            }}
+            className="mb-6 flex flex-wrap items-end gap-3 border-b border-neutral-200 pb-6 dark:border-neutral-700"
           >
-            <option value="" disabled>
-              Select a category
-            </option>
-            {categories.map((category) => (
-              <option key={category._id} value={category._id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={labelClassName}>
-          Note
-          <input
-            type="text"
-            value={newDraft.note}
-            onChange={(event) => setNewDraft((prev) => ({ ...prev, note: event.target.value }))}
-            className={inputClassName}
-          />
-        </label>
-        {addStatus.kind === 'success' ? (
-          <span aria-live="polite" className={statusTextClassName(addStatus)}>
-            Added ✓
-          </span>
-        ) : (
-          <>
-            <button
-              type="submit"
-              disabled={addStatus.kind === 'saving'}
-              className={primaryButtonClassName}
-            >
-              Add
-            </button>
-            <span aria-live="polite" className={statusTextClassName(addStatus)}>
-              {addStatus.kind === 'saving' && 'Saving…'}
-              {addStatus.kind === 'error' && addStatus.message}
-            </span>
-          </>
-        )}
-      </form>
-
-      <ul className="flex list-none flex-col gap-2 p-0">
-        {expenses.map((expense) => {
-          const draft = edits[expense._id] ?? toDraft(expense)
-          const status = rowStatus[expense._id] ?? { kind: 'idle' }
-          const saving = status.kind === 'saving'
-
-          return (
-            <li key={expense._id} className="flex flex-wrap items-center gap-2">
+            <label className={labelClassName}>
+              Date
               <input
                 type="date"
-                aria-label="Expense date"
-                value={draft.date}
-                onChange={(event) => handleEditChange(expense._id, 'date', event.target.value)}
+                value={newDraft.date}
+                onChange={(event) =>
+                  setNewDraft((prev) => ({ ...prev, date: event.target.value }))
+                }
                 className={inputClassName}
               />
+            </label>
+            <label className={labelClassName}>
+              Amount
               <input
                 type="number"
                 min="0.01"
                 step="0.01"
-                aria-label="Expense amount"
-                value={draft.amount}
-                onChange={(event) => handleEditChange(expense._id, 'amount', event.target.value)}
-                className={`${inputClassName} w-24`}
-              />
-              <select
-                aria-label="Expense category"
-                value={draft.category}
+                value={newDraft.amount}
                 onChange={(event) =>
-                  handleEditChange(expense._id, 'category', event.target.value)
+                  setNewDraft((prev) => ({ ...prev, amount: event.target.value }))
+                }
+                className={inputClassName}
+              />
+            </label>
+            <label className={labelClassName}>
+              Category
+              <select
+                value={newDraft.category}
+                onChange={(event) =>
+                  setNewDraft((prev) => ({ ...prev, category: event.target.value }))
                 }
                 className={inputClassName}
               >
+                <option value="" disabled>
+                  Select a category
+                </option>
                 {categories.map((category) => (
                   <option key={category._id} value={category._id}>
                     {category.name}
                   </option>
                 ))}
               </select>
+            </label>
+            <label className={labelClassName}>
+              Note
               <input
                 type="text"
-                aria-label="Expense note"
-                value={draft.note}
-                onChange={(event) => handleEditChange(expense._id, 'note', event.target.value)}
-                className={`${inputClassName} flex-1`}
+                value={newDraft.note}
+                onChange={(event) =>
+                  setNewDraft((prev) => ({ ...prev, note: event.target.value }))
+                }
+                className={inputClassName}
               />
-              {status.kind === 'success' ? (
-                <span aria-live="polite" className={statusTextClassName(status)}>
-                  Saved ✓
+            </label>
+            {addStatus.kind === 'success' ? (
+              <span aria-live="polite" className={statusTextClassName(addStatus)}>
+                Added ✓
+              </span>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  disabled={addStatus.kind === 'saving'}
+                  className={primaryButtonClassName}
+                >
+                  Add
+                </button>
+                <span aria-live="polite" className={statusTextClassName(addStatus)}>
+                  {addStatus.kind === 'saving' && 'Saving…'}
+                  {addStatus.kind === 'error' && addStatus.message}
                 </span>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveRow(expense._id)}
-                    disabled={saving}
-                    className={primaryButtonClassName}
+              </>
+            )}
+          </form>
+
+          <ul className="flex list-none flex-col gap-2 p-0">
+            {expenses.map((expense) => {
+              const draft = edits[expense._id] ?? toDraft(expense)
+              const status = rowStatus[expense._id] ?? { kind: 'idle' }
+              const saving = status.kind === 'saving'
+
+              return (
+                <li key={expense._id} className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="date"
+                    aria-label="Expense date"
+                    value={draft.date}
+                    onChange={(event) =>
+                      handleEditChange(expense._id, 'date', event.target.value)
+                    }
+                    className={inputClassName}
+                  />
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    aria-label="Expense amount"
+                    value={draft.amount}
+                    onChange={(event) =>
+                      handleEditChange(expense._id, 'amount', event.target.value)
+                    }
+                    className={`${inputClassName} w-24`}
+                  />
+                  <select
+                    aria-label="Expense category"
+                    value={draft.category}
+                    onChange={(event) =>
+                      handleEditChange(expense._id, 'category', event.target.value)
+                    }
+                    className={inputClassName}
                   >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteRow(expense._id)}
-                    disabled={saving}
-                    className={secondaryButtonClassName}
-                  >
-                    Delete
-                  </button>
-                  <span aria-live="polite" className={statusTextClassName(status)}>
-                    {status.kind === 'saving' && 'Saving…'}
-                    {status.kind === 'error' && status.message}
-                  </span>
-                </>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    aria-label="Expense note"
+                    value={draft.note}
+                    onChange={(event) =>
+                      handleEditChange(expense._id, 'note', event.target.value)
+                    }
+                    className={`${inputClassName} flex-1`}
+                  />
+                  {status.kind === 'success' ? (
+                    <span aria-live="polite" className={statusTextClassName(status)}>
+                      Saved ✓
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRow(expense._id)}
+                        disabled={saving}
+                        className={primaryButtonClassName}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRow(expense._id)}
+                        disabled={saving}
+                        className={secondaryButtonClassName}
+                      >
+                        Delete
+                      </button>
+                      <span aria-live="polite" className={statusTextClassName(status)}>
+                        {status.kind === 'saving' && 'Saving…'}
+                        {status.kind === 'error' && status.message}
+                      </span>
+                    </>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </section>
   )
 }

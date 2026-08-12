@@ -2,11 +2,23 @@ import { Request, Response, Router } from 'express'
 import mongoose from 'mongoose'
 import Expense, { MIN_EXPENSE_AMOUNT } from '../models/Expense.js'
 import Category from '../models/Category.js'
+import { parseMonthRange } from '../utils/monthRange.js'
 
 const router = Router()
 
-router.get('/', async (_req: Request, res: Response) => {
-  const expenses = await Expense.find().sort({ date: -1 })
+router.get('/', async (req: Request, res: Response) => {
+  const month = req.query.month
+  if (typeof month !== 'string') {
+    return res.status(400).json({ error: 'month must be in YYYY-MM format' })
+  }
+  const range = parseMonthRange(month)
+  if (!range) {
+    return res.status(400).json({ error: 'month must be in YYYY-MM format' })
+  }
+
+  const expenses = await Expense.find({ date: { $gte: range.start, $lt: range.end } }).sort({
+    date: -1,
+  })
   res.status(200).json(expenses)
 })
 

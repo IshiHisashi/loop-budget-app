@@ -24,17 +24,46 @@ afterAll(async () => {
 })
 
 describe('GET /api/expenses', () => {
-  it('returns all expenses sorted most-recent-date-first', async () => {
+  it('rejects a missing month', async () => {
+    const res = await request(app).get('/api/expenses')
+
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a malformed month', async () => {
+    const res = await request(app).get('/api/expenses?month=2026-13')
+
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a non-YYYY-MM month string', async () => {
+    const res = await request(app).get('/api/expenses?month=January')
+
+    expect(res.status).toBe(400)
+  })
+
+  it('returns expenses within the given month, sorted most-recent-date-first', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
     await Expense.create({ date: '2026-01-05', amount: 10, category: category._id })
     await Expense.create({ date: '2026-01-20', amount: 20, category: category._id })
     await Expense.create({ date: '2026-01-10', amount: 30, category: category._id })
+    await Expense.create({ date: '2026-02-01', amount: 40, category: category._id })
 
-    const res = await request(app).get('/api/expenses')
+    const res = await request(app).get('/api/expenses?month=2026-01')
 
     expect(res.status).toBe(200)
     expect(res.body).toHaveLength(3)
     expect(res.body.map((expense: { amount: number }) => expense.amount)).toEqual([20, 30, 10])
+  })
+
+  it('returns an empty list for a month with no expenses', async () => {
+    const category = await Category.create({ name: 'Food', isDefault: false })
+    await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+
+    const res = await request(app).get('/api/expenses?month=2026-02')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
   })
 })
 
