@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import { BudgetVsActualRow, getBudgetVsActual } from './api/budgetVsActual.ts'
-
-function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7)
-}
+import { currentMonth } from './dateUtils.ts'
 
 function BudgetVsActual() {
   const [month, setMonth] = useState(currentMonth())

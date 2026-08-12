@@ -17,8 +17,8 @@ export interface ExpenseInput {
   note?: string
 }
 
-export function getExpenses(): Promise<Expense[]> {
-  return apiFetch<Expense[]>('/api/expenses')
+export function getExpenses(month: string): Promise<Expense[]> {
+  return apiFetch<Expense[]>(`/api/expenses?month=${month}`)
 }
 
 export function createExpense(data: ExpenseInput): Promise<Expense> {

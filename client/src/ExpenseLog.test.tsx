@@ -10,6 +10,26 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response
 }
 
+const janExpenses = [
+  {
+    _id: 'exp-food',
+    date: '2026-01-20T00:00:00.000Z',
+    amount: 50,
+    category: 'cat1',
+    note: 'Groceries',
+    createdAt: '',
+    updatedAt: '',
+  },
+  {
+    _id: 'exp-rent',
+    date: '2026-01-10T00:00:00.000Z',
+    amount: 1200,
+    category: 'cat2',
+    createdAt: '',
+    updatedAt: '',
+  },
+]
+
 function mockFetch(options: { failPatch?: boolean } = {}) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
@@ -21,26 +41,8 @@ function mockFetch(options: { failPatch?: boolean } = {}) {
       ])
     }
 
-    if (url.endsWith('/api/expenses') && method === 'GET') {
-      return jsonResponse([
-        {
-          _id: 'exp-food',
-          date: '2026-01-20T00:00:00.000Z',
-          amount: 50,
-          category: 'cat1',
-          note: 'Groceries',
-          createdAt: '',
-          updatedAt: '',
-        },
-        {
-          _id: 'exp-rent',
-          date: '2026-01-10T00:00:00.000Z',
-          amount: 1200,
-          category: 'cat2',
-          createdAt: '',
-          updatedAt: '',
-        },
-      ])
+    if (url.includes('/api/expenses?month=') && method === 'GET') {
+      return jsonResponse(janExpenses)
     }
 
     if (url.endsWith('/api/expenses') && method === 'POST') {
@@ -68,12 +70,17 @@ function mockFetch(options: { failPatch?: boolean } = {}) {
       if (options.failPatch) {
         return jsonResponse({ error: 'server exploded' }, 500)
       }
-      const body = JSON.parse(init!.body as string) as { amount: number; note?: string }
+      const body = JSON.parse(init!.body as string) as {
+        date: string
+        amount: number
+        category: string
+        note?: string
+      }
       return jsonResponse({
         _id: 'exp-food',
-        date: '2026-01-20T00:00:00.000Z',
+        date: `${body.date}T00:00:00.000Z`,
         amount: body.amount,
-        category: 'cat1',
+        category: body.category,
         note: body.note,
         createdAt: '',
         updatedAt: '',
@@ -86,6 +93,10 @@ function mockFetch(options: { failPatch?: boolean } = {}) {
 
     throw new Error(`Unhandled request: ${method} ${url}`)
   })
+}
+
+function selectJanuary() {
+  fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-01' } })
 }
 
 beforeEach(() => {
@@ -107,8 +118,24 @@ describe('ExpenseLog', () => {
     expect(within(rows[1]).getByDisplayValue('1200')).toBeInTheDocument()
   })
 
+  it('refetches with the new month when the month input changes', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+
+    selectJanuary()
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/expenses?month=2026-01'),
+        expect.anything()
+      )
+    })
+  })
+
   it('adds an expense via the form', async () => {
     render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
     await screen.findByDisplayValue('50')
 
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
@@ -130,6 +157,22 @@ describe('ExpenseLog', () => {
     await screen.findByDisplayValue('75')
   })
 
+  it('does not show a newly added expense whose date falls outside the selected month', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
+    await screen.findByDisplayValue('50')
+
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-02-01' } })
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'cat2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Added ✓')
+    expect(screen.queryByDisplayValue('75')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+
   it('rejects invalid add input client-side without calling the API', async () => {
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
@@ -143,6 +186,8 @@ describe('ExpenseLog', () => {
 
   it('saves an edited row via PATCH', async () => {
     render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
     await screen.findByDisplayValue('50')
 
     const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
@@ -169,10 +214,30 @@ describe('ExpenseLog', () => {
     await within(foodRow).findByText('Saved ✓')
   })
 
+  it('removes a row from the list when its date is edited outside the selected month', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
+    await screen.findByDisplayValue('50')
+
+    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    fireEvent.change(within(foodRow).getByLabelText('Expense date'), {
+      target: { value: '2026-02-05' },
+    })
+    fireEvent.click(within(foodRow).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('50')).not.toBeInTheDocument()
+    })
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+  })
+
   it('replaces row Save/Delete with the success message, then restores them after 3 seconds', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       render(<ExpenseLog />)
+      await screen.findByDisplayValue('50')
+      selectJanuary()
       await screen.findByDisplayValue('50')
 
       const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
@@ -202,6 +267,8 @@ describe('ExpenseLog', () => {
     try {
       render(<ExpenseLog />)
       await screen.findByDisplayValue('50')
+      selectJanuary()
+      await screen.findByDisplayValue('50')
 
       fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
       fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
@@ -224,6 +291,8 @@ describe('ExpenseLog', () => {
 
   it('clears a note via inline edit', async () => {
     render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    selectJanuary()
     await screen.findByDisplayValue('50')
 
     const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
@@ -283,5 +352,69 @@ describe('ExpenseLog', () => {
     await waitFor(() => {
       expect(screen.queryByDisplayValue('1200')).not.toBeInTheDocument()
     })
+  })
+
+  it('does not apply a stale response when switching months before an earlier fetch resolves', async () => {
+    let resolveJanFetch: (value: Response) => void
+    const janFetchPromise = new Promise<Response>((resolve) => {
+      resolveJanFetch = resolve
+    })
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=2026-01') && method === 'GET') {
+        return janFetchPromise
+      }
+      if (url.includes('/api/expenses?month=2026-02') && method === 'GET') {
+        return jsonResponse([
+          {
+            _id: 'exp-feb',
+            date: '2026-02-10T00:00:00.000Z',
+            amount: 99,
+            category: 'cat1',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ])
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse([])
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    const monthInput = await screen.findByLabelText('Month')
+
+    fireEvent.change(monthInput, { target: { value: '2026-01' } })
+    fireEvent.change(monthInput, { target: { value: '2026-02' } })
+
+    await screen.findByDisplayValue('99')
+
+    resolveJanFetch!(
+      jsonResponse([
+        {
+          _id: 'exp-jan',
+          date: '2026-01-05T00:00:00.000Z',
+          amount: 11,
+          category: 'cat1',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ])
+    )
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('99')).toBeInTheDocument()
+    })
+    expect(screen.queryByDisplayValue('11')).not.toBeInTheDocument()
   })
 })
