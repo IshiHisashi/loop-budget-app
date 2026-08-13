@@ -5,17 +5,35 @@ import BudgetVsActual from './BudgetVsActual.tsx'
 
 type Tab = 'budgets' | 'expenses' | 'report'
 
-function Layout() {
+interface LayoutProps {
+  onLogout: () => void
+}
+
+function Layout({ onLogout }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<Tab>('budgets')
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <div className="mx-auto max-w-4xl p-6">
         <header className="mb-6 border-b border-neutral-200 pb-4 dark:border-neutral-700">
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-            Loop Budget
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400">Personal budget tracker.</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+                Loop Budget
+              </h1>
+              <p className="text-neutral-600 dark:text-neutral-400">Personal budget tracker.</p>
+            </div>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
+                text-neutral-900 hover:bg-neutral-100
+                dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
+                dark:hover:bg-neutral-800"
+            >
+              Log out
+            </button>
+          </div>
           <nav className="mt-4 flex gap-2">
             <button
               type="button"
