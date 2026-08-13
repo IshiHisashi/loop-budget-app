@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import app from './app.js'
 import { connectDB } from './db.js'
 import { seedDefaultCategories } from './seed/categories.js'
-import { getAuthConfig } from './auth/config.js'
+import { getAuthConfig, getClientOrigin } from './auth/config.js'
 
 const PORT = process.env.PORT || 3001
 
@@ -11,6 +11,12 @@ const PORT = process.env.PORT || 3001
 // security defect, not reduced functionality — refuse to start rather
 // than run with auth silently broken.
 getAuthConfig()
+
+// Same reasoning as getAuthConfig() above: a missing CLIENT_ORIGIN must
+// not silently fall back to cors()'s wildcard-allow behavior, so this
+// is validated at boot rather than left to whatever app.ts's cors()
+// setup does with an unset value.
+getClientOrigin()
 
 await connectDB(process.env.MONGODB_URI)
 

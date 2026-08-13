@@ -16,6 +16,10 @@ const app = express()
 // needs to be sent cross-origin between the Vite dev server and this
 // API, which requires a specific allowed origin plus `credentials: true`
 // (a wildcard origin can't be combined with credentialed requests).
+// Read directly from process.env (not the validated getClientOrigin())
+// so this keeps working at module-import time in tests, which never set
+// CLIENT_ORIGIN — index.ts's real-server boot path separately calls
+// getClientOrigin() to fail fast if it's unset, same as auth config.
 app.use(cors({ origin: process.env.CLIENT_ORIGIN, credentials: true }))
 app.use(express.json())
 app.use(cookieParser())

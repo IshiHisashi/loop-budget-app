@@ -25,3 +25,23 @@ export function getAuthConfig(): AuthConfig {
   cachedConfig = { authId, authPasswordHash, authJwtSecret }
   return cachedConfig
 }
+
+let cachedClientOrigin: string | undefined
+
+// Same fail-fast-at-boot intent as getAuthConfig() — app.ts reads
+// process.env.CLIENT_ORIGIN directly (not this function) so its cors()
+// setup keeps working at module-import time in tests that never set
+// CLIENT_ORIGIN. This function exists purely for index.ts to call once
+// at real-server boot, so a deployment that forgets CLIENT_ORIGIN
+// refuses to start instead of silently serving with wildcard CORS.
+export function getClientOrigin(): string {
+  if (cachedClientOrigin) return cachedClientOrigin
+
+  const clientOrigin = process.env.CLIENT_ORIGIN
+  if (!clientOrigin) {
+    throw new Error('CLIENT_ORIGIN must be set')
+  }
+
+  cachedClientOrigin = clientOrigin
+  return cachedClientOrigin
+}
