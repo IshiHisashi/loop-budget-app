@@ -28,12 +28,13 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('renders the login form when unauthenticated', async () => {
+  it('renders the login form on a real 401 (not the unreachable message)', async () => {
     vi.stubGlobal('fetch', mockFetch({ authenticated: false }))
     render(<App />)
 
     await screen.findByRole('button', { name: 'Log in' })
     expect(screen.queryByRole('button', { name: 'Budgets' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('renders Layout when authenticated', async () => {
@@ -41,6 +42,20 @@ describe('App', () => {
     render(<App />)
 
     await screen.findByRole('button', { name: 'Budgets' })
+    expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument()
+  })
+
+  it('renders an unreachable message, not the login form, when the session check fails outright', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      })
+    )
+    render(<App />)
+
+    await screen.findByRole('alert')
+    expect(screen.getByRole('alert')).toHaveTextContent(/server is running/)
     expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument()
   })
 })

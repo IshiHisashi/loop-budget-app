@@ -9,14 +9,20 @@ const PORT = process.env.PORT || 3001
 
 // Unlike connectDB's graceful degradation, a missing auth secret is a
 // security defect, not reduced functionality — refuse to start rather
-// than run with auth silently broken.
-getAuthConfig()
-
-// Same reasoning as getAuthConfig() above: a missing CLIENT_ORIGIN must
-// not silently fall back to cors()'s wildcard-allow behavior, so this
-// is validated at boot rather than left to whatever app.ts's cors()
-// setup does with an unset value.
-getClientOrigin()
+// than run with auth silently broken. Caught here (rather than left as
+// an unhandled exception) so the terminal shows a clean one-line
+// message pointing at .env.example instead of a raw stack trace.
+try {
+  getAuthConfig()
+  // Same reasoning as getAuthConfig() above: a missing CLIENT_ORIGIN
+  // must not silently fall back to cors()'s wildcard-allow behavior, so
+  // this is validated at boot rather than left to whatever app.ts's
+  // cors() setup does with an unset value.
+  getClientOrigin()
+} catch (err) {
+  console.error(err instanceof Error ? err.message : String(err))
+  process.exit(1)
+}
 
 await connectDB(process.env.MONGODB_URI)
 

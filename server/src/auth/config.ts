@@ -19,7 +19,9 @@ export function getAuthConfig(): AuthConfig {
   const authJwtSecret = process.env.AUTH_JWT_SECRET
 
   if (!authId || !authPasswordHash || !authJwtSecret) {
-    throw new Error('AUTH_ID, AUTH_PASSWORD_HASH, and AUTH_JWT_SECRET must all be set')
+    throw new Error(
+      'AUTH_ID, AUTH_PASSWORD_HASH, and AUTH_JWT_SECRET must all be set — see server/.env.example'
+    )
   }
 
   cachedConfig = { authId, authPasswordHash, authJwtSecret }
@@ -39,7 +41,7 @@ export function getClientOrigin(): string {
 
   const clientOrigin = process.env.CLIENT_ORIGIN
   if (!clientOrigin) {
-    throw new Error('CLIENT_ORIGIN must be set')
+    throw new Error('CLIENT_ORIGIN must be set — see server/.env.example')
   }
 
   cachedClientOrigin = clientOrigin
