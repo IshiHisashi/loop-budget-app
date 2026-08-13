@@ -8,23 +8,25 @@ then write the spec.
 
 ## Problem
 
-Track monthly spending against a personal budget, logged manually.
+Track monthly spending against a personal budget, logged manually. Each
+user tracks their own budget independently of every other user.
 
 ## Target user
 
-The repo owner, single device, single browser session. No multi-user
-support needed — but the app is gated behind a login, since it may be
-reachable beyond just the owner's own machine.
+Anyone who signs up for an account. Multi-user support is in scope as
+of the account-signup epic (see Core v1 features) — each user's data is
+private to them; the app has no shared or cross-user views.
 
 ## Core v1 features
 
-- **Single-user login**: gate access behind one fixed id/password
-  credential (no accounts, no signup, no multi-user support — just a
-  login screen standing between the app and whoever reaches it).
-  Budget/expense records are tagged with the authenticated identity
-  (`userId`) as a defense-in-depth measure — data access stays scoped
-  to the logged-in session rather than relying solely on route-level
-  auth — not as groundwork for multiple accounts.
+- **Multi-user accounts**: sign up with an id/password, log in, log
+  out. Every user's budgets, categories, and expenses are private to
+  them — real per-user data isolation (not merely the defense-in-depth
+  `userId` tagging the single-user-era login originally added; see
+  #40/#41, which predate this scope change and will need revisiting
+  against it). Supersedes the earlier single-fixed-credential login
+  (#39) — that issue's "no accounts, no signup" framing no longer
+  reflects current scope.
 - **Monthly budgets**: set a budget amount split across categories, per
   month.
 - **Categories**: predefined categories available out of the box (e.g.
@@ -41,12 +43,15 @@ reachable beyond just the owner's own machine.
 Explicit, so the loop doesn't scope-creep during planning:
 
 - Bank/account sync or auto-imported transactions
-- Multi-user support (accounts, signup, multiple distinct users'
-  data) — single-user login itself is in scope, see Core v1 features.
-  Tagging records with the single authenticated identity's `userId`
-  for defense-in-depth (see Core v1 features) is not multi-user
-  support — there is still exactly one possible identity.
-- Multi-device sync
+- Password reset / account recovery flows — signup and login are in
+  scope, recovering a lost password is not, yet
+- Shared or collaborative data between users — every user's budgets,
+  categories, and expenses stay private to them; no team/household
+  accounts or cross-user visibility
+- Social/OAuth login — id/password only
+- Multi-device sync (beyond each user being able to log into their own
+  account from any device — that's just login working normally, not a
+  sync feature)
 - Mobile app
 - Recurring-transaction automation
 
