@@ -1,18 +1,20 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import request from 'supertest'
 import app from '../app.js'
 import Budget from '../models/Budget.js'
 import Category from '../models/Category.js'
 import Expense from '../models/Expense.js'
 import { DEFAULT_CATEGORY_NAMES, seedDefaultCategories } from '../seed/categories.js'
+import { getAuthenticatedAgent } from '../testUtils/authTestHelper.js'
 
 let mongod: MongoMemoryServer
+let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>>
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()
   await mongoose.connect(mongod.getUri())
+  agent = await getAuthenticatedAgent(app)
 })
 
 afterEach(async () => {
@@ -30,7 +32,7 @@ describe('GET /api/categories', () => {
   it('returns the seeded predefined categories', async () => {
     await seedDefaultCategories()
 
-    const res = await request(app).get('/api/categories')
+    const res = await agent.get('/api/categories')
 
     expect(res.status).toBe(200)
     expect(res.body).toHaveLength(DEFAULT_CATEGORY_NAMES.length)
@@ -40,14 +42,14 @@ describe('GET /api/categories', () => {
 
 describe('POST /api/categories', () => {
   it('creates a custom category', async () => {
-    const res = await request(app).post('/api/categories').send({ name: 'Gifts' })
+    const res = await agent.post('/api/categories').send({ name: 'Gifts' })
 
     expect(res.status).toBe(201)
     expect(res.body).toMatchObject({ name: 'Gifts', isDefault: false })
   })
 
   it('rejects a blank name', async () => {
-    const res = await request(app).post('/api/categories').send({ name: '   ' })
+    const res = await agent.post('/api/categories').send({ name: '   ' })
 
     expect(res.status).toBe(400)
   })
@@ -55,7 +57,7 @@ describe('POST /api/categories', () => {
   it('rejects a case-insensitive duplicate name', async () => {
     await seedDefaultCategories()
 
-    const res = await request(app).post('/api/categories').send({ name: 'food' })
+    const res = await agent.post('/api/categories').send({ name: 'food' })
 
     expect(res.status).toBe(409)
   })
@@ -65,7 +67,7 @@ describe('PATCH /api/categories/:id', () => {
   it('renames a custom category', async () => {
     const created = await Category.create({ name: 'Gifts', isDefault: false })
 
-    const res = await request(app)
+    const res = await agent
       .patch(`/api/categories/${created._id}`)
       .send({ name: 'Presents' })
 
@@ -77,7 +79,7 @@ describe('PATCH /api/categories/:id', () => {
     await seedDefaultCategories()
     const food = await Category.findOne({ name: 'Food' })
 
-    const res = await request(app)
+    const res = await agent
       .patch(`/api/categories/${food!._id}`)
       .send({ name: 'Snacks' })
 
@@ -87,7 +89,7 @@ describe('PATCH /api/categories/:id', () => {
   it('returns 404 for an unknown id', async () => {
     const fakeId = new mongoose.Types.ObjectId()
 
-    const res = await request(app)
+    const res = await agent
       .patch(`/api/categories/${fakeId}`)
       .send({ name: 'Whatever' })
 
@@ -98,7 +100,7 @@ describe('PATCH /api/categories/:id', () => {
     await seedDefaultCategories()
     const gifts = await Category.create({ name: 'Gifts', isDefault: false })
 
-    const res = await request(app)
+    const res = await agent
       .patch(`/api/categories/${gifts._id}`)
       .send({ name: 'food' })
 
@@ -110,7 +112,7 @@ describe('DELETE /api/categories/:id', () => {
   it('deletes a custom category', async () => {
     const created = await Category.create({ name: 'Gifts', isDefault: false })
 
-    const res = await request(app).delete(`/api/categories/${created._id}`)
+    const res = await agent.delete(`/api/categories/${created._id}`)
 
     expect(res.status).toBe(200)
     const found = await Category.findById(created._id)
@@ -121,7 +123,7 @@ describe('DELETE /api/categories/:id', () => {
     await seedDefaultCategories()
     const food = await Category.findOne({ name: 'Food' })
 
-    const res = await request(app).delete(`/api/categories/${food!._id}`)
+    const res = await agent.delete(`/api/categories/${food!._id}`)
 
     expect(res.status).toBe(403)
   })
@@ -129,7 +131,7 @@ describe('DELETE /api/categories/:id', () => {
   it('returns 404 for an unknown id', async () => {
     const fakeId = new mongoose.Types.ObjectId()
 
-    const res = await request(app).delete(`/api/categories/${fakeId}`)
+    const res = await agent.delete(`/api/categories/${fakeId}`)
 
     expect(res.status).toBe(404)
   })
@@ -138,7 +140,7 @@ describe('DELETE /api/categories/:id', () => {
     const created = await Category.create({ name: 'Gifts', isDefault: false })
     await Budget.create({ category: created._id, amount: 100 })
 
-    const res = await request(app).delete(`/api/categories/${created._id}`)
+    const res = await agent.delete(`/api/categories/${created._id}`)
 
     expect(res.status).toBe(409)
     const stillThere = await Category.findById(created._id)
@@ -149,7 +151,7 @@ describe('DELETE /api/categories/:id', () => {
     const created = await Category.create({ name: 'Gifts', isDefault: false })
     await Expense.create({ date: '2026-01-15', amount: 10, category: created._id })
 
-    const res = await request(app).delete(`/api/categories/${created._id}`)
+    const res = await agent.delete(`/api/categories/${created._id}`)
 
     expect(res.status).toBe(409)
     const stillThere = await Category.findById(created._id)

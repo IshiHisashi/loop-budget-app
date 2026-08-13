@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import Layout from './Layout.tsx'
 
 describe('Layout', () => {
   it('shows the Budgets tab by default, with the other two hidden', () => {
-    render(<Layout />)
+    render(<Layout onLogout={vi.fn()} />)
 
     expect(screen.getByTestId('tab-budgets')).not.toHaveAttribute('hidden')
     expect(screen.getByTestId('tab-expenses')).toHaveAttribute('hidden')
@@ -13,7 +13,7 @@ describe('Layout', () => {
   })
 
   it('switches to the Expenses tab and back without unmounting either panel', () => {
-    render(<Layout />)
+    render(<Layout onLogout={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Expenses' }))
 
@@ -30,7 +30,7 @@ describe('Layout', () => {
   })
 
   it('switches to the Budget vs Actual tab', () => {
-    render(<Layout />)
+    render(<Layout onLogout={vi.fn()} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Budget vs Actual' }))
 
@@ -41,5 +41,14 @@ describe('Layout', () => {
       'aria-current',
       'page'
     )
+  })
+
+  it('calls onLogout when the Log out button is clicked', () => {
+    const onLogout = vi.fn()
+    render(<Layout onLogout={onLogout} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+
+    expect(onLogout).toHaveBeenCalledOnce()
   })
 })

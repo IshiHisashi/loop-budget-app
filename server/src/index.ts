@@ -3,8 +3,14 @@ import mongoose from 'mongoose'
 import app from './app.js'
 import { connectDB } from './db.js'
 import { seedDefaultCategories } from './seed/categories.js'
+import { getAuthConfig } from './auth/config.js'
 
 const PORT = process.env.PORT || 3001
+
+// Unlike connectDB's graceful degradation, a missing auth secret is a
+// security defect, not reduced functionality — refuse to start rather
+// than run with auth silently broken.
+getAuthConfig()
 
 await connectDB(process.env.MONGODB_URI)
 

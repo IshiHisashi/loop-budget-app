@@ -1,17 +1,19 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import request from 'supertest'
 import app from '../app.js'
 import Budget from '../models/Budget.js'
 import Category from '../models/Category.js'
 import Expense from '../models/Expense.js'
+import { getAuthenticatedAgent } from '../testUtils/authTestHelper.js'
 
 let mongod: MongoMemoryServer
+let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>>
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()
   await mongoose.connect(mongod.getUri())
+  agent = await getAuthenticatedAgent(app)
 })
 
 afterEach(async () => {
@@ -27,19 +29,19 @@ afterAll(async () => {
 
 describe('GET /api/budget-vs-actual', () => {
   it('rejects a missing month', async () => {
-    const res = await request(app).get('/api/budget-vs-actual')
+    const res = await agent.get('/api/budget-vs-actual')
 
     expect(res.status).toBe(400)
   })
 
   it('rejects a malformed month', async () => {
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-13')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-13')
 
     expect(res.status).toBe(400)
   })
 
   it('rejects a non-YYYY-MM month string', async () => {
-    const res = await request(app).get('/api/budget-vs-actual?month=January')
+    const res = await agent.get('/api/budget-vs-actual?month=January')
 
     expect(res.status).toBe(400)
   })
@@ -50,7 +52,7 @@ describe('GET /api/budget-vs-actual', () => {
     await Expense.create({ date: '2026-01-05', amount: 40, category: category._id })
     await Expense.create({ date: '2026-01-20', amount: 25.5, category: category._id })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     expect(res.status).toBe(200)
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
@@ -61,7 +63,7 @@ describe('GET /api/budget-vs-actual', () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
     await Budget.create({ category: category._id, amount: 300 })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
     expect(row).toMatchObject({ budgeted: 300, actual: 0 })
@@ -71,7 +73,7 @@ describe('GET /api/budget-vs-actual', () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
     await Expense.create({ date: '2026-01-05', amount: 40, category: category._id })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
     expect(row).toMatchObject({ budgeted: 0, actual: 40 })
@@ -80,7 +82,7 @@ describe('GET /api/budget-vs-actual', () => {
   it('includes a category with neither a budget nor expenses, both 0', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
     expect(row).toMatchObject({ budgeted: 0, actual: 0 })
@@ -92,7 +94,7 @@ describe('GET /api/budget-vs-actual', () => {
     await Expense.create({ date: '2026-02-01', amount: 60, category: category._id })
     await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
     expect(row.actual).toBe(10)
@@ -104,7 +106,7 @@ describe('GET /api/budget-vs-actual', () => {
     await Expense.create({ date: '2026-01-05', amount: 40, category: food._id })
     await Expense.create({ date: '2026-01-05', amount: 1200, category: rent._id })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     const foodRow = res.body.find((r: { category: string }) => r.category === food._id.toString())
     const rentRow = res.body.find((r: { category: string }) => r.category === rent._id.toString())
@@ -117,7 +119,7 @@ describe('GET /api/budget-vs-actual', () => {
     await Expense.create({ date: '2026-01-01', amount: 0.1, category: category._id })
     await Expense.create({ date: '2026-01-02', amount: 0.2, category: category._id })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2026-01')
+    const res = await agent.get('/api/budget-vs-actual?month=2026-01')
 
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
     expect(row.actual).toBe(0.3)
@@ -128,7 +130,7 @@ describe('GET /api/budget-vs-actual', () => {
     await Expense.create({ date: '2025-12-15', amount: 20, category: category._id })
     await Expense.create({ date: '2026-01-01', amount: 999, category: category._id })
 
-    const res = await request(app).get('/api/budget-vs-actual?month=2025-12')
+    const res = await agent.get('/api/budget-vs-actual?month=2025-12')
 
     const row = res.body.find((r: { category: string }) => r.category === category._id.toString())
     expect(row.actual).toBe(20)

@@ -1,16 +1,18 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import request from 'supertest'
 import app from '../app.js'
 import Budget from '../models/Budget.js'
 import Category from '../models/Category.js'
+import { getAuthenticatedAgent } from '../testUtils/authTestHelper.js'
 
 let mongod: MongoMemoryServer
+let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>>
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()
   await mongoose.connect(mongod.getUri())
+  agent = await getAuthenticatedAgent(app)
 })
 
 afterEach(async () => {
@@ -28,7 +30,7 @@ describe('GET /api/budgets', () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
     await Budget.create({ category: category._id, amount: 300 })
 
-    const res = await request(app).get('/api/budgets')
+    const res = await agent.get('/api/budgets')
 
     expect(res.status).toBe(200)
     expect(res.body).toHaveLength(1)
@@ -40,7 +42,7 @@ describe('PUT /api/budgets/:categoryId', () => {
   it('creates a new budget entry', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
 
-    const res = await request(app)
+    const res = await agent
       .put(`/api/budgets/${category._id}`)
       .send({ amount: 300 })
 
@@ -53,9 +55,9 @@ describe('PUT /api/budgets/:categoryId', () => {
 
   it('upserts (updates in place) an existing budget entry', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
-    await request(app).put(`/api/budgets/${category._id}`).send({ amount: 300 })
+    await agent.put(`/api/budgets/${category._id}`).send({ amount: 300 })
 
-    const res = await request(app)
+    const res = await agent
       .put(`/api/budgets/${category._id}`)
       .send({ amount: 450 })
 
@@ -69,7 +71,7 @@ describe('PUT /api/budgets/:categoryId', () => {
   it('rejects a negative amount', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
 
-    const res = await request(app)
+    const res = await agent
       .put(`/api/budgets/${category._id}`)
       .send({ amount: -10 })
 
@@ -79,7 +81,7 @@ describe('PUT /api/budgets/:categoryId', () => {
   it('rejects a non-numeric amount', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
 
-    const res = await request(app)
+    const res = await agent
       .put(`/api/budgets/${category._id}`)
       .send({ amount: 'lots' })
 
@@ -89,13 +91,13 @@ describe('PUT /api/budgets/:categoryId', () => {
   it('rejects a missing amount', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
 
-    const res = await request(app).put(`/api/budgets/${category._id}`).send({})
+    const res = await agent.put(`/api/budgets/${category._id}`).send({})
 
     expect(res.status).toBe(400)
   })
 
   it('returns 400 for a malformed categoryId', async () => {
-    const res = await request(app).put('/api/budgets/not-an-id').send({ amount: 100 })
+    const res = await agent.put('/api/budgets/not-an-id').send({ amount: 100 })
 
     expect(res.status).toBe(400)
   })
@@ -103,7 +105,7 @@ describe('PUT /api/budgets/:categoryId', () => {
   it('returns 404 for a well-formed but non-existent categoryId', async () => {
     const fakeId = new mongoose.Types.ObjectId()
 
-    const res = await request(app)
+    const res = await agent
       .put(`/api/budgets/${fakeId}`)
       .send({ amount: 100 })
 
@@ -116,7 +118,7 @@ describe('DELETE /api/budgets/:categoryId', () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
     await Budget.create({ category: category._id, amount: 300 })
 
-    const res = await request(app).delete(`/api/budgets/${category._id}`)
+    const res = await agent.delete(`/api/budgets/${category._id}`)
 
     expect(res.status).toBe(200)
     const found = await Budget.findOne({ category: category._id })
@@ -126,7 +128,7 @@ describe('DELETE /api/budgets/:categoryId', () => {
   it('returns 404 when no budget entry exists for the category', async () => {
     const category = await Category.create({ name: 'Food', isDefault: false })
 
-    const res = await request(app).delete(`/api/budgets/${category._id}`)
+    const res = await agent.delete(`/api/budgets/${category._id}`)
 
     expect(res.status).toBe(404)
   })
