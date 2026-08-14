@@ -7,12 +7,13 @@ import Expense from '../models/Expense.js'
 import { getAuthenticatedAgent } from '../testUtils/authTestHelper.js'
 
 let mongod: MongoMemoryServer
-let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>>
+let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>>['agent']
+let userId: string
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create()
   await mongoose.connect(mongod.getUri())
-  agent = await getAuthenticatedAgent(app)
+  ;({ agent, userId } = await getAuthenticatedAgent(app))
 })
 
 afterEach(async () => {
@@ -45,11 +46,11 @@ describe('GET /api/expenses', () => {
   })
 
   it('returns expenses within the given month, sorted most-recent-date-first', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
-    await Expense.create({ date: '2026-01-05', amount: 10, category: category._id })
-    await Expense.create({ date: '2026-01-20', amount: 20, category: category._id })
-    await Expense.create({ date: '2026-01-10', amount: 30, category: category._id })
-    await Expense.create({ date: '2026-02-01', amount: 40, category: category._id })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    await Expense.create({ userId, date: '2026-01-05', amount: 10, category: category._id })
+    await Expense.create({ userId, date: '2026-01-20', amount: 20, category: category._id })
+    await Expense.create({ userId, date: '2026-01-10', amount: 30, category: category._id })
+    await Expense.create({ userId, date: '2026-02-01', amount: 40, category: category._id })
 
     const res = await agent.get('/api/expenses?month=2026-01')
 
@@ -59,10 +60,30 @@ describe('GET /api/expenses', () => {
   })
 
   it('returns an empty list for a month with no expenses', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
-    await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    await Expense.create({ userId, date: '2026-01-15', amount: 10, category: category._id })
 
     const res = await agent.get('/api/expenses?month=2026-02')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual([])
+  })
+
+  it('does not return another account expenses for the same month', async () => {
+    const other = await getAuthenticatedAgent(app)
+    const theirCategory = await Category.create({
+      userId: other.userId,
+      name: 'Groceries',
+      isDefault: false,
+    })
+    await Expense.create({
+      userId: other.userId,
+      date: '2026-01-15',
+      amount: 999,
+      category: theirCategory._id,
+    })
+
+    const res = await agent.get('/api/expenses?month=2026-01')
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual([])
@@ -71,7 +92,7 @@ describe('GET /api/expenses', () => {
 
 describe('POST /api/expenses', () => {
   it('creates an expense', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -85,7 +106,7 @@ describe('POST /api/expenses', () => {
   })
 
   it('creates an expense without a note', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -96,7 +117,7 @@ describe('POST /api/expenses', () => {
   })
 
   it('rejects a missing date', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -106,7 +127,7 @@ describe('POST /api/expenses', () => {
   })
 
   it('rejects an invalid date', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -116,7 +137,7 @@ describe('POST /api/expenses', () => {
   })
 
   it('rejects a zero amount', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -126,7 +147,7 @@ describe('POST /api/expenses', () => {
   })
 
   it('rejects a negative amount', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -136,7 +157,7 @@ describe('POST /api/expenses', () => {
   })
 
   it('rejects a positive amount below the minimum with 400, not 500', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
 
     const res = await agent
       .post('/api/expenses')
@@ -162,16 +183,34 @@ describe('POST /api/expenses', () => {
 
     expect(res.status).toBe(404)
   })
+
+  it('returns 404 when referencing another account category id', async () => {
+    const other = await getAuthenticatedAgent(app)
+    const theirCategory = await Category.create({
+      userId: other.userId,
+      name: 'Groceries',
+      isDefault: false,
+    })
+
+    const res = await agent
+      .post('/api/expenses')
+      .send({ date: '2026-01-15', amount: 10, category: theirCategory._id.toString() })
+
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('PATCH /api/expenses/:id', () => {
   it('partially updates an expense', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
-    const expense = await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    const expense = await Expense.create({
+      userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: category._id,
+    })
 
-    const res = await agent
-      .patch(`/api/expenses/${expense._id}`)
-      .send({ amount: 25 })
+    const res = await agent.patch(`/api/expenses/${expense._id}`).send({ amount: 25 })
 
     expect(res.status).toBe(200)
     expect(res.body.amount).toBe(25)
@@ -179,23 +218,29 @@ describe('PATCH /api/expenses/:id', () => {
   })
 
   it('rejects an invalid amount', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
-    const expense = await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    const expense = await Expense.create({
+      userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: category._id,
+    })
 
-    const res = await agent
-      .patch(`/api/expenses/${expense._id}`)
-      .send({ amount: -1 })
+    const res = await agent.patch(`/api/expenses/${expense._id}`).send({ amount: -1 })
 
     expect(res.status).toBe(400)
   })
 
   it('rejects a positive amount below the minimum with 400, not 500', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
-    const expense = await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    const expense = await Expense.create({
+      userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: category._id,
+    })
 
-    const res = await agent
-      .patch(`/api/expenses/${expense._id}`)
-      .send({ amount: 0.005 })
+    const res = await agent.patch(`/api/expenses/${expense._id}`).send({ amount: 0.005 })
 
     expect(res.status).toBe(400)
   })
@@ -207,12 +252,58 @@ describe('PATCH /api/expenses/:id', () => {
 
     expect(res.status).toBe(404)
   })
+
+  it('returns 404 for another account expense', async () => {
+    const other = await getAuthenticatedAgent(app)
+    const theirCategory = await Category.create({
+      userId: other.userId,
+      name: 'Groceries',
+      isDefault: false,
+    })
+    const theirExpense = await Expense.create({
+      userId: other.userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: theirCategory._id,
+    })
+
+    const res = await agent.patch(`/api/expenses/${theirExpense._id}`).send({ amount: 25 })
+
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when changing category to one owned by another account', async () => {
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    const expense = await Expense.create({
+      userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: category._id,
+    })
+    const other = await getAuthenticatedAgent(app)
+    const theirCategory = await Category.create({
+      userId: other.userId,
+      name: 'Other',
+      isDefault: false,
+    })
+
+    const res = await agent
+      .patch(`/api/expenses/${expense._id}`)
+      .send({ category: theirCategory._id.toString() })
+
+    expect(res.status).toBe(404)
+  })
 })
 
 describe('DELETE /api/expenses/:id', () => {
   it('deletes an expense', async () => {
-    const category = await Category.create({ name: 'Food', isDefault: false })
-    const expense = await Expense.create({ date: '2026-01-15', amount: 10, category: category._id })
+    const category = await Category.create({ userId, name: 'Groceries', isDefault: false })
+    const expense = await Expense.create({
+      userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: category._id,
+    })
 
     const res = await agent.delete(`/api/expenses/${expense._id}`)
 
@@ -227,5 +318,26 @@ describe('DELETE /api/expenses/:id', () => {
     const res = await agent.delete(`/api/expenses/${fakeId}`)
 
     expect(res.status).toBe(404)
+  })
+
+  it('returns 404 for another account expense', async () => {
+    const other = await getAuthenticatedAgent(app)
+    const theirCategory = await Category.create({
+      userId: other.userId,
+      name: 'Groceries',
+      isDefault: false,
+    })
+    const theirExpense = await Expense.create({
+      userId: other.userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: theirCategory._id,
+    })
+
+    const res = await agent.delete(`/api/expenses/${theirExpense._id}`)
+
+    expect(res.status).toBe(404)
+    const stillThere = await Expense.findById(theirExpense._id)
+    expect(stillThere).not.toBeNull()
   })
 })
