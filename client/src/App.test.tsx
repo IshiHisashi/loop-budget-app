@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.tsx'
 
@@ -11,11 +11,14 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function mockFetch(options: { authenticated: boolean }) {
-  return vi.fn(async (url: string) => {
+  return vi.fn(async (url: string, init?: RequestInit) => {
     if (url.endsWith('/api/auth/me')) {
       return options.authenticated
         ? jsonResponse({ ok: true })
         : jsonResponse({ error: 'authentication required' }, 401)
+    }
+    if (url.endsWith('/api/auth/signup') && init?.method === 'POST') {
+      return jsonResponse({ ok: true }, 201)
     }
     // Layout's data-fetching children make their own requests once
     // mounted — not under test here, just keep them quiet.
@@ -57,5 +60,37 @@ describe('App', () => {
     await screen.findByRole('alert')
     expect(screen.getByRole('alert')).toHaveTextContent(/server is running/)
     expect(screen.queryByRole('button', { name: 'Log in' })).not.toBeInTheDocument()
+  })
+
+  it('switches between the login and signup screens', async () => {
+    vi.stubGlobal('fetch', mockFetch({ authenticated: false }))
+    render(<App />)
+
+    await screen.findByRole('button', { name: 'Log in' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+    expect(screen.getByLabelText('Confirm password')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    expect(screen.queryByLabelText('Confirm password')).not.toBeInTheDocument()
+  })
+
+  it('renders Layout after a successful signup', async () => {
+    vi.stubGlobal('fetch', mockFetch({ authenticated: false }))
+    render(<App />)
+
+    await screen.findByRole('button', { name: 'Log in' })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+
+    fireEvent.change(screen.getByLabelText('ID'), { target: { value: 'alice' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'a-good-password' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), {
+      target: { value: 'a-good-password' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Budgets' })).toBeInTheDocument()
+    })
   })
 })

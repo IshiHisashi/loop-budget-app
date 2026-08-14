@@ -35,7 +35,7 @@ afterEach(() => {
 
 describe('Login', () => {
   it('renders id and password fields', () => {
-    render(<Login onLoginSuccess={vi.fn()} />)
+    render(<Login onLoginSuccess={vi.fn()} onSwitchToSignup={vi.fn()} />)
 
     expect(screen.getByLabelText('ID')).toBeInTheDocument()
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
@@ -43,7 +43,7 @@ describe('Login', () => {
 
   it('calls onLoginSuccess after a successful login', async () => {
     const onLoginSuccess = vi.fn()
-    render(<Login onLoginSuccess={onLoginSuccess} />)
+    render(<Login onLoginSuccess={onLoginSuccess} onSwitchToSignup={vi.fn()} />)
 
     fireEvent.change(screen.getByLabelText('ID'), { target: { value: 'alice' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } })
@@ -57,7 +57,7 @@ describe('Login', () => {
   it('shows an inline error on a failed login without calling onLoginSuccess', async () => {
     vi.stubGlobal('fetch', mockFetch({ fail: true }))
     const onLoginSuccess = vi.fn()
-    render(<Login onLoginSuccess={onLoginSuccess} />)
+    render(<Login onLoginSuccess={onLoginSuccess} onSwitchToSignup={vi.fn()} />)
 
     fireEvent.change(screen.getByLabelText('ID'), { target: { value: 'alice' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong' } })
@@ -65,5 +65,14 @@ describe('Login', () => {
 
     await screen.findByText('invalid credentials')
     expect(onLoginSuccess).not.toHaveBeenCalled()
+  })
+
+  it('calls onSwitchToSignup when the sign-up link is clicked', () => {
+    const onSwitchToSignup = vi.fn()
+    render(<Login onLoginSuccess={vi.fn()} onSwitchToSignup={onSwitchToSignup} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign up' }))
+
+    expect(onSwitchToSignup).toHaveBeenCalledOnce()
   })
 })

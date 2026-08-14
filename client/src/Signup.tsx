@@ -1,24 +1,31 @@
 import { FormEvent, useState } from 'react'
-import { login } from './api/auth.ts'
+import { signup } from './api/auth.ts'
 
 type Status = { kind: 'idle' } | { kind: 'submitting' } | { kind: 'error'; message: string }
 
-interface LoginProps {
-  onLoginSuccess: () => void
-  onSwitchToSignup: () => void
+interface SignupProps {
+  onSignupSuccess: () => void
+  onSwitchToLogin: () => void
 }
 
-function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps) {
+function Signup({ onSignupSuccess, onSwitchToLogin }: SignupProps) {
   const [id, setId] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+
+    if (password !== confirmPassword) {
+      setStatus({ kind: 'error', message: 'Passwords do not match' })
+      return
+    }
+
     setStatus({ kind: 'submitting' })
     try {
-      await login(id, password)
-      onLoginSuccess()
+      await signup(id, password)
+      onSignupSuccess()
     } catch (err) {
       setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
     }
@@ -57,12 +64,21 @@ function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps) {
               className={inputClassName}
             />
           </label>
+          <label className={labelClassName}>
+            Confirm password
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className={inputClassName}
+            />
+          </label>
           <button
             type="submit"
             disabled={status.kind === 'submitting'}
             className={primaryButtonClassName}
           >
-            Log in
+            Sign up
           </button>
           {status.kind === 'error' && (
             <span role="alert" className="text-sm text-red-600 dark:text-red-400">
@@ -71,13 +87,13 @@ function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps) {
           )}
         </form>
         <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-          Need an account?{' '}
+          Have an account?{' '}
           <button
             type="button"
-            onClick={onSwitchToSignup}
+            onClick={onSwitchToLogin}
             className="underline hover:text-neutral-900 dark:hover:text-neutral-100"
           >
-            Sign up
+            Log in
           </button>
         </p>
       </div>
@@ -85,4 +101,4 @@ function Login({ onLoginSuccess, onSwitchToSignup }: LoginProps) {
   )
 }
 
-export default Login
+export default Signup

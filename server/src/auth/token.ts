@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { getAuthConfig } from './config.js'
+import { getJwtSecret } from './config.js'
 
 export const SESSION_COOKIE_NAME = 'session'
 
@@ -8,17 +8,21 @@ export const SESSION_COOKIE_NAME = 'session'
 const SESSION_EXPIRY = '7d'
 export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
-export function signSession(): string {
-  const { authJwtSecret, authId } = getAuthConfig()
-  return jwt.sign({ sub: authId }, authJwtSecret, { expiresIn: SESSION_EXPIRY })
+export function signSession(userId: string): string {
+  const jwtSecret = getJwtSecret()
+  return jwt.sign({ sub: userId }, jwtSecret, { expiresIn: SESSION_EXPIRY })
 }
 
-export function verifySession(token: string): boolean {
-  const { authJwtSecret, authId } = getAuthConfig()
+// Returns the session's user id if the token is valid, null otherwise.
+export function verifySession(token: string): string | null {
+  const jwtSecret = getJwtSecret()
   try {
-    const payload = jwt.verify(token, authJwtSecret)
-    return typeof payload === 'object' && payload !== null && payload.sub === authId
+    const payload = jwt.verify(token, jwtSecret)
+    if (typeof payload === 'object' && payload !== null && typeof payload.sub === 'string') {
+      return payload.sub
+    }
+    return null
   } catch {
-    return false
+    return null
   }
 }
