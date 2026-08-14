@@ -47,14 +47,10 @@ router.post('/signup', async (req: Request, res: Response) => {
     return res.status(409).json({ error: 'that id is already taken' })
   }
 
+  let user
   try {
     const passwordHash = await bcrypt.hash(password, BCRYPT_COST)
-    const user = await User.create({ username, passwordHash })
-    await seedDefaultCategoriesForUser(user._id)
-
-    const token = signSession(user._id.toString())
-    res.cookie(SESSION_COOKIE_NAME, token, cookieOptions())
-    res.status(201).json({ ok: true })
+    user = await User.create({ username, passwordHash })
   } catch (err) {
     // Race with another signup for the same username between the
     // findOne check above and this create — the unique index catches
@@ -66,6 +62,23 @@ router.post('/signup', async (req: Request, res: Response) => {
     }
     throw err
   }
+
+  try {
+    await seedDefaultCategoriesForUser(user._id)
+  } catch (err) {
+    // The user document above is already durably saved — if seeding
+    // fails (a transient DB error, not a username race, since that's
+    // already handled above), leaving it in place would permanently
+    // squat this username with an account nobody ever got a session
+    // for. Delete it so a retry can signup cleanly instead of forever
+    // hitting "that id is already taken" for a broken account.
+    await User.deleteOne({ _id: user._id })
+    throw err
+  }
+
+  const token = signSession(user._id.toString())
+  res.cookie(SESSION_COOKIE_NAME, token, cookieOptions())
+  res.status(201).json({ ok: true })
 })
 
 router.post('/login', async (req: Request, res: Response) => {
