@@ -11,8 +11,8 @@ import { requireAuth } from './middleware/requireAuth.js'
 
 const app = express()
 
-// The app is gated behind a single-user login (VISION.md) since it may
-// be reachable beyond just the owner's own machine — the session cookie
+// The app is gated behind account login (VISION.md) since it may be
+// reachable beyond just the owner's own machine — the session cookie
 // needs to be sent cross-origin between the Vite dev server and this
 // API, which requires a specific allowed origin plus `credentials: true`
 // (a wildcard origin can't be combined with credentialed requests).
@@ -28,6 +28,14 @@ app.use('/api/auth', authRouter)
 // Everything mounted below this point is protected by default, so any
 // future route added here is automatically covered unless deliberately
 // mounted above this line (safer default than opting each router in).
+//
+// requireAuth attaches req.userId (a real, distinct per-account id —
+// see #47), but the routes below don't filter by it yet: every
+// authenticated account currently reads and writes the exact same
+// shared Category/Budget/Expense data, regardless of which account is
+// logged in. Accounts are real; per-account data isolation is not yet
+// — that's the scope of the immediate follow-up to #47 (superseding
+// #40/#41), not this change.
 app.use('/api', requireAuth)
 app.use('/api/categories', categoriesRouter)
 app.use('/api/budgets', budgetsRouter)

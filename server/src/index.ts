@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import app from './app.js'
 import { connectDB } from './db.js'
 import { seedDefaultCategories } from './seed/categories.js'
-import { getAuthConfig, getClientOrigin } from './auth/config.js'
+import { getJwtSecret, getClientOrigin } from './auth/config.js'
 
 const PORT = process.env.PORT || 3001
 
@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3001
 // an unhandled exception) so the terminal shows a clean one-line
 // message pointing at .env.example instead of a raw stack trace.
 try {
-  getAuthConfig()
+  getJwtSecret()
   // Same reasoning as getAuthConfig() above: a missing CLIENT_ORIGIN
   // must not silently fall back to cors()'s wildcard-allow behavior, so
   // this is validated at boot rather than left to whatever app.ts's

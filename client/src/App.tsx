@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import Layout from './Layout.tsx'
 import Login from './Login.tsx'
+import Signup from './Signup.tsx'
 import { getSession, logout } from './api/auth.ts'
 import { ApiError } from './api/http.ts'
 
 type AuthState = 'checking' | 'authenticated' | 'unauthenticated' | 'unreachable'
+type UnauthenticatedView = 'login' | 'signup'
 
 function App() {
   const [authState, setAuthState] = useState<AuthState>('checking')
+  const [view, setView] = useState<UnauthenticatedView>('login')
 
   useEffect(() => {
     getSession()
@@ -27,6 +30,7 @@ function App() {
     // out shouldn't hinge on that request succeeding.
     logout().catch(() => {})
     setAuthState('unauthenticated')
+    setView('login')
   }
 
   if (authState === 'checking') {
@@ -53,7 +57,20 @@ function App() {
   }
 
   if (authState === 'unauthenticated') {
-    return <Login onLoginSuccess={() => setAuthState('authenticated')} />
+    if (view === 'signup') {
+      return (
+        <Signup
+          onSignupSuccess={() => setAuthState('authenticated')}
+          onSwitchToLogin={() => setView('login')}
+        />
+      )
+    }
+    return (
+      <Login
+        onLoginSuccess={() => setAuthState('authenticated')}
+        onSwitchToSignup={() => setView('signup')}
+      />
+    )
   }
 
   return <Layout onLogout={handleLogout} />

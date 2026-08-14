@@ -1,20 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { getAuthConfig, getClientOrigin } from './config.js'
+import { getJwtSecret, getClientOrigin } from './config.js'
 
 afterEach(() => {
-  delete process.env.AUTH_ID
-  delete process.env.AUTH_PASSWORD_HASH
   delete process.env.AUTH_JWT_SECRET
   delete process.env.CLIENT_ORIGIN
 })
 
-describe('getAuthConfig', () => {
-  it('throws an error mentioning .env.example when required env vars are unset', () => {
-    delete process.env.AUTH_ID
-    delete process.env.AUTH_PASSWORD_HASH
+describe('getJwtSecret', () => {
+  it('throws an error mentioning .env.example when AUTH_JWT_SECRET is unset', () => {
     delete process.env.AUTH_JWT_SECRET
 
-    expect(() => getAuthConfig()).toThrow('server/.env.example')
+    expect(() => getJwtSecret()).toThrow('server/.env.example')
   })
 })
 
