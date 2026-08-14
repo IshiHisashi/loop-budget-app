@@ -1,8 +1,6 @@
 import 'dotenv/config'
-import mongoose from 'mongoose'
 import app from './app.js'
 import { connectDB } from './db.js'
-import { seedDefaultCategories } from './seed/categories.js'
 import { getJwtSecret, getClientOrigin } from './auth/config.js'
 
 const PORT = process.env.PORT || 3001
@@ -26,15 +24,8 @@ try {
 
 await connectDB(process.env.MONGODB_URI)
 
-// connectDB() swallows connection errors so the server can still start
-// without MongoDB (see /api/health's disconnected state). Seeding needs
-// an actual connection first, or Category.countDocuments() would hang
-// waiting on Mongoose's command buffer instead of failing fast.
-if (mongoose.connection.readyState === 1) {
-  await seedDefaultCategories()
-} else {
-  console.warn('Skipping category seeding: no MongoDB connection')
-}
+// Default categories are seeded per account at sign-up time now (see
+// routes/auth.ts), not once globally at server boot.
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`)

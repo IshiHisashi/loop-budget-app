@@ -5,12 +5,14 @@ import Category from '../models/Category.js'
 
 const router = Router()
 
-router.get('/', async (_req: Request, res: Response) => {
-  const budgets = await Budget.find()
+router.get('/', async (req: Request, res: Response) => {
+  const userId = req.userId as string
+  const budgets = await Budget.find({ userId })
   res.status(200).json(budgets)
 })
 
 router.put('/:categoryId', async (req: Request<{ categoryId: string }>, res: Response) => {
+  const userId = req.userId as string
   const { categoryId } = req.params
   if (!mongoose.Types.ObjectId.isValid(categoryId)) {
     return res.status(400).json({ error: 'invalid categoryId' })
@@ -21,13 +23,13 @@ router.put('/:categoryId', async (req: Request<{ categoryId: string }>, res: Res
     return res.status(400).json({ error: 'amount must be a non-negative number' })
   }
 
-  const category = await Category.findById(categoryId)
+  const category = await Category.findOne({ _id: categoryId, userId })
   if (!category) {
     return res.status(404).json({ error: 'category not found' })
   }
 
   const budget = await Budget.findOneAndUpdate(
-    { category: categoryId },
+    { category: categoryId, userId },
     { amount },
     { upsert: true, returnDocument: 'after', runValidators: true }
   )
@@ -35,12 +37,13 @@ router.put('/:categoryId', async (req: Request<{ categoryId: string }>, res: Res
 })
 
 router.delete('/:categoryId', async (req: Request<{ categoryId: string }>, res: Response) => {
+  const userId = req.userId as string
   const { categoryId } = req.params
   if (!mongoose.Types.ObjectId.isValid(categoryId)) {
     return res.status(404).json({ error: 'budget not found' })
   }
 
-  const deleted = await Budget.findOneAndDelete({ category: categoryId })
+  const deleted = await Budget.findOneAndDelete({ category: categoryId, userId })
   if (!deleted) {
     return res.status(404).json({ error: 'budget not found' })
   }

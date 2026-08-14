@@ -7,6 +7,7 @@ import { parseMonthRange } from '../utils/monthRange.js'
 const router = Router()
 
 router.get('/', async (req: Request, res: Response) => {
+  const userId = req.userId as string
   const month = req.query.month
   if (typeof month !== 'string') {
     return res.status(400).json({ error: 'month must be in YYYY-MM format' })
@@ -18,9 +19,9 @@ router.get('/', async (req: Request, res: Response) => {
   const { start, end } = range
 
   const [categories, budgets, expenses] = await Promise.all([
-    Category.find(),
-    Budget.find(),
-    Expense.find({ date: { $gte: start, $lt: end } }),
+    Category.find({ userId }),
+    Budget.find({ userId }),
+    Expense.find({ userId, date: { $gte: start, $lt: end } }),
   ])
 
   const budgetByCategory = new Map(budgets.map((budget) => [budget.category.toString(), budget.amount]))

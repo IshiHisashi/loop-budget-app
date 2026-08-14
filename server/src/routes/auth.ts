@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import User from '../models/User.js'
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_MS, signSession } from '../auth/token.js'
 import { requireAuth } from '../middleware/requireAuth.js'
+import { seedDefaultCategoriesForUser } from '../seed/categories.js'
 
 const router = Router()
 
@@ -49,6 +50,7 @@ router.post('/signup', async (req: Request, res: Response) => {
   try {
     const passwordHash = await bcrypt.hash(password, BCRYPT_COST)
     const user = await User.create({ username, passwordHash })
+    await seedDefaultCategoriesForUser(user._id)
 
     const token = signSession(user._id.toString())
     res.cookie(SESSION_COOKIE_NAME, token, cookieOptions())

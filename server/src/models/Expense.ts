@@ -8,6 +8,7 @@ import mongoose, { Document, Schema, Types } from 'mongoose'
 export const MIN_EXPENSE_AMOUNT = 0.01
 
 export interface ExpenseDocument extends Document {
+  userId: Types.ObjectId
   date: Date
   amount: number
   category: Types.ObjectId
@@ -18,6 +19,7 @@ export interface ExpenseDocument extends Document {
 
 const expenseSchema = new Schema<ExpenseDocument>(
   {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     date: { type: Date, required: true },
     amount: { type: Number, required: true, min: MIN_EXPENSE_AMOUNT },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
