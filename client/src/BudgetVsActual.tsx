@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import { BudgetVsActualRow, getBudgetVsActual } from './api/budgetVsActual.ts'
 import { currentMonth } from './dateUtils.ts'
+import { cardClassName as baseCardClassName, inputClassName, labelClassName } from './theme.ts'
 
 function BudgetVsActual() {
   const [month, setMonth] = useState(currentMonth())
@@ -34,17 +35,17 @@ function BudgetVsActual() {
   }, [month])
 
   return (
-    <section className="mb-6 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+    <section className={`${baseCardClassName} mb-6`}>
       <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
         Budget vs actual
       </h2>
-      <label className="flex flex-col gap-1 text-sm text-neutral-700 dark:text-neutral-300">
+      <label className={labelClassName}>
         Month
         <input
           type="month"
           value={month}
           onChange={(event) => setMonth(event.target.value)}
-          className="w-fit rounded border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800"
+          className={`w-fit ${inputClassName}`}
         />
       </label>
 

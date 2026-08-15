@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import { Budget, deleteBudget, getBudgets, setBudget } from './api/budgets.ts'
+import {
+  cardClassName as baseCardClassName,
+  inputClassName,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+} from './theme.ts'
 
 type RowStatus =
   | { kind: 'idle' }
@@ -111,14 +117,7 @@ function BudgetSetup() {
     }
   }
 
-  const cardClassName =
-    'mb-6 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900'
-  const inputClassName =
-    'rounded border border-neutral-300 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800'
-  const primaryButtonClassName =
-    'rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600'
-  const secondaryButtonClassName =
-    'rounded-lg border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-600 dark:hover:bg-neutral-800'
+  const cardClassName = `${baseCardClassName} mb-6`
 
   if (loading) {
     return (
