@@ -4,6 +4,7 @@ import Login from './Login.tsx'
 import Signup from './Signup.tsx'
 import { getSession, logout } from './api/auth.ts'
 import { ApiError } from './api/http.ts'
+import { pageBackgroundClassName } from './theme.ts'
 
 type AuthState = 'checking' | 'authenticated' | 'unauthenticated' | 'unreachable'
 type UnauthenticatedView = 'login' | 'signup'
@@ -35,7 +36,7 @@ function App() {
 
   if (authState === 'checking') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+      <div className={`flex items-center justify-center ${pageBackgroundClassName}`}>
         <p className="text-neutral-600 dark:text-neutral-400">Loading…</p>
       </div>
     )
@@ -43,7 +44,7 @@ function App() {
 
   if (authState === 'unreachable') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+      <div className={`flex items-center justify-center ${pageBackgroundClassName}`}>
         <p
           role="alert"
           className="max-w-sm text-center text-neutral-600 dark:text-neutral-400"

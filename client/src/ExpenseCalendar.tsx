@@ -50,9 +50,9 @@ function ExpenseCalendar({ month, expenses, selectedDay, onSelectDay }: ExpenseC
   const cellClassName =
     'flex h-16 flex-col items-center justify-center rounded border border-transparent text-sm'
   const dayButtonClassName =
-    'flex h-16 flex-col items-center justify-center rounded border border-neutral-300 bg-neutral-50 text-sm hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-blue-900/30'
+    'flex h-16 flex-col items-center justify-center rounded border border-neutral-300 bg-neutral-50 text-sm hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-rose-900/30'
   const selectedDayButtonClassName =
-    'flex h-16 flex-col items-center justify-center rounded border border-blue-500 bg-blue-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-blue-400 dark:bg-blue-900/50'
+    'flex h-16 flex-col items-center justify-center rounded border border-rose-500 bg-rose-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-rose-400 dark:bg-rose-900/50'
 
   return (
     <div className="mb-6">

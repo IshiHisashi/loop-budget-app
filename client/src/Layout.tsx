@@ -2,6 +2,7 @@ import { useState } from 'react'
 import BudgetSetup from './BudgetSetup.tsx'
 import ExpenseLog from './ExpenseLog.tsx'
 import BudgetVsActual from './BudgetVsActual.tsx'
+import { pageBackgroundClassName } from './theme.ts'
 
 type Tab = 'budgets' | 'expenses' | 'report'
 
@@ -13,7 +14,7 @@ function Layout({ onLogout }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<Tab>('budgets')
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+    <div className={pageBackgroundClassName}>
       <div className="mx-auto max-w-4xl p-6">
         <header className="mb-6 border-b border-neutral-200 pb-4 dark:border-neutral-700">
           <div className="flex items-start justify-between">
@@ -40,11 +41,11 @@ function Layout({ onLogout }: LayoutProps) {
               aria-current={activeTab === 'budgets' ? 'page' : undefined}
               onClick={() => setActiveTab('budgets')}
               className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-blue-600
-                aria-[current=page]:bg-blue-600 aria-[current=page]:text-white
+                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
+                aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
                 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-blue-500
-                dark:aria-[current=page]:bg-blue-500"
+                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
+                dark:aria-[current=page]:bg-rose-500"
             >
               Budgets
             </button>
@@ -53,11 +54,11 @@ function Layout({ onLogout }: LayoutProps) {
               aria-current={activeTab === 'expenses' ? 'page' : undefined}
               onClick={() => setActiveTab('expenses')}
               className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-blue-600
-                aria-[current=page]:bg-blue-600 aria-[current=page]:text-white
+                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
+                aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
                 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-blue-500
-                dark:aria-[current=page]:bg-blue-500"
+                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
+                dark:aria-[current=page]:bg-rose-500"
             >
               Expenses
             </button>
@@ -66,11 +67,11 @@ function Layout({ onLogout }: LayoutProps) {
               aria-current={activeTab === 'report' ? 'page' : undefined}
               onClick={() => setActiveTab('report')}
               className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-blue-600
-                aria-[current=page]:bg-blue-600 aria-[current=page]:text-white
+                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
+                aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
                 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-blue-500
-                dark:aria-[current=page]:bg-blue-500"
+                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
+                dark:aria-[current=page]:bg-rose-500"
             >
               Budget vs Actual
             </button>
