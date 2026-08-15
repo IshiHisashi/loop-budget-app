@@ -1,8 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import mongoose from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import request from 'supertest'
 import app from '../app.js'
+import User from '../models/User.js'
+import * as categoriesSeed from '../seed/categories.js'
 import { setTestAuthEnv } from '../testUtils/authTestHelper.js'
 
 let mongod: MongoMemoryServer
@@ -16,6 +18,10 @@ beforeAll(async () => {
 afterAll(async () => {
   await mongoose.disconnect()
   await mongod.stop()
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('POST /api/auth/signup', () => {
@@ -58,6 +64,27 @@ describe('POST /api/auth/signup', () => {
       .send({ id: 'bob', password: 'a-different-password' })
 
     expect(res.status).toBe(409)
+  })
+
+  it('rolls back the created user if seeding default categories fails, so a retry can succeed', async () => {
+    const seedSpy = vi
+      .spyOn(categoriesSeed, 'seedDefaultCategoriesForUser')
+      .mockRejectedValueOnce(new Error('simulated transient DB failure'))
+
+    const failedRes = await request(app)
+      .post('/api/auth/signup')
+      .send({ id: 'ivy', password: 'ivys-password' })
+
+    expect(failedRes.status).toBe(500)
+    expect(await User.findOne({ username: 'ivy' })).toBeNull()
+
+    seedSpy.mockRestore()
+
+    const retryRes = await request(app)
+      .post('/api/auth/signup')
+      .send({ id: 'ivy', password: 'ivys-password' })
+
+    expect(retryRes.status).toBe(201)
   })
 })
 
