@@ -2,9 +2,9 @@ import { SVGProps, useState } from 'react'
 import BudgetSetup from './BudgetSetup.tsx'
 import ExpenseLog from './ExpenseLog.tsx'
 import BudgetVsActual from './BudgetVsActual.tsx'
-import { pageBackgroundClassName } from './theme.ts'
+import { cardClassName, pageBackgroundClassName } from './theme.ts'
 
-type Tab = 'budgets' | 'expenses' | 'report'
+type Tab = 'budgets' | 'expenses' | 'report' | 'settings'
 
 function iconProps(props: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
   return {
@@ -43,6 +43,15 @@ function BarChartIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...iconProps(props)}>
       <path d="M4 20V10M12 20V4M20 20v-7" />
+    </svg>
+  )
+}
+
+function SettingsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />
     </svg>
   )
 }
@@ -90,22 +99,21 @@ function Layout({ onLogout }: LayoutProps) {
             <BarChartIcon />
             Budget vs Actual
           </button>
+          <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-700">
+            <button
+              type="button"
+              aria-current={activeTab === 'settings' ? 'page' : undefined}
+              onClick={() => setActiveTab('settings')}
+              className={navItemClassName}
+            >
+              <SettingsIcon />
+              Settings
+            </button>
+          </div>
         </nav>
       </aside>
       <main className="flex-1 p-6">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-6 flex justify-end border-b border-neutral-200 pb-4 dark:border-neutral-700">
-            <button
-              type="button"
-              onClick={onLogout}
-              className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100
-                dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800"
-            >
-              Log out
-            </button>
-          </div>
           <div data-testid="tab-budgets" hidden={activeTab !== 'budgets'}>
             <BudgetSetup />
           </div>
@@ -114,6 +122,23 @@ function Layout({ onLogout }: LayoutProps) {
           </div>
           <div data-testid="tab-report" hidden={activeTab !== 'report'}>
             <BudgetVsActual />
+          </div>
+          <div data-testid="tab-settings" hidden={activeTab !== 'settings'}>
+            <section className={cardClassName}>
+              <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                Settings
+              </h2>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
+                  text-neutral-900 hover:bg-neutral-100
+                  dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
+                  dark:hover:bg-neutral-800"
+              >
+                Log out
+              </button>
+            </section>
           </div>
         </div>
       </main>
