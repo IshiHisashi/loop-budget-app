@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { SVGProps, useState } from 'react'
 import BudgetSetup from './BudgetSetup.tsx'
 import ExpenseLog from './ExpenseLog.tsx'
 import BudgetVsActual from './BudgetVsActual.tsx'
@@ -6,24 +6,95 @@ import { pageBackgroundClassName } from './theme.ts'
 
 type Tab = 'budgets' | 'expenses' | 'report'
 
+function iconProps(props: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
+  return {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.75,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    className: 'h-5 w-5 shrink-0',
+    'aria-hidden': true,
+    ...props,
+  }
+}
+
+function WalletIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18" />
+      <circle cx="16" cy="14" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function ReceiptIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+      <path d="M9 8h6M9 12h6" />
+    </svg>
+  )
+}
+
+function BarChartIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M4 20V10M12 20V4M20 20v-7" />
+    </svg>
+  )
+}
+
 interface LayoutProps {
   onLogout: () => void
 }
+
+const navItemClassName =
+  'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-neutral-700 hover:text-rose-600 aria-[current=page]:text-rose-600 aria-[current=page]:font-medium dark:text-neutral-300 dark:hover:text-rose-300 dark:aria-[current=page]:text-rose-400'
 
 function Layout({ onLogout }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<Tab>('budgets')
 
   return (
-    <div className={pageBackgroundClassName}>
-      <div className="mx-auto max-w-4xl p-6">
-        <header className="mb-6 border-b border-neutral-200 pb-4 dark:border-neutral-700">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-                Loop Budget
-              </h1>
-              <p className="text-neutral-600 dark:text-neutral-400">Personal budget tracker.</p>
-            </div>
+    <div className={`flex ${pageBackgroundClassName}`}>
+      <aside className="sticky top-0 h-screen w-56 shrink-0 overflow-y-auto border-r border-neutral-200 p-6 dark:border-neutral-700">
+        <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Loop Budget</h1>
+        <p className="text-neutral-600 dark:text-neutral-400">Personal budget tracker.</p>
+        <nav className="mt-6 flex flex-col gap-2">
+          <button
+            type="button"
+            aria-current={activeTab === 'budgets' ? 'page' : undefined}
+            onClick={() => setActiveTab('budgets')}
+            className={navItemClassName}
+          >
+            <WalletIcon />
+            Budgets
+          </button>
+          <button
+            type="button"
+            aria-current={activeTab === 'expenses' ? 'page' : undefined}
+            onClick={() => setActiveTab('expenses')}
+            className={navItemClassName}
+          >
+            <ReceiptIcon />
+            Expenses
+          </button>
+          <button
+            type="button"
+            aria-current={activeTab === 'report' ? 'page' : undefined}
+            onClick={() => setActiveTab('report')}
+            className={navItemClassName}
+          >
+            <BarChartIcon />
+            Budget vs Actual
+          </button>
+        </nav>
+      </aside>
+      <main className="flex-1 p-6">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-6 flex justify-end border-b border-neutral-200 pb-4 dark:border-neutral-700">
             <button
               type="button"
               onClick={onLogout}
@@ -35,49 +106,6 @@ function Layout({ onLogout }: LayoutProps) {
               Log out
             </button>
           </div>
-          <nav className="mt-4 flex gap-2">
-            <button
-              type="button"
-              aria-current={activeTab === 'budgets' ? 'page' : undefined}
-              onClick={() => setActiveTab('budgets')}
-              className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
-                aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
-                dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
-                dark:aria-[current=page]:bg-rose-500"
-            >
-              Budgets
-            </button>
-            <button
-              type="button"
-              aria-current={activeTab === 'expenses' ? 'page' : undefined}
-              onClick={() => setActiveTab('expenses')}
-              className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
-                aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
-                dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
-                dark:aria-[current=page]:bg-rose-500"
-            >
-              Expenses
-            </button>
-            <button
-              type="button"
-              aria-current={activeTab === 'report' ? 'page' : undefined}
-              onClick={() => setActiveTab('report')}
-              className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-2
-                text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
-                aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
-                dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-                dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
-                dark:aria-[current=page]:bg-rose-500"
-            >
-              Budget vs Actual
-            </button>
-          </nav>
-        </header>
-        <main>
           <div data-testid="tab-budgets" hidden={activeTab !== 'budgets'}>
             <BudgetSetup />
           </div>
@@ -87,8 +115,8 @@ function Layout({ onLogout }: LayoutProps) {
           <div data-testid="tab-report" hidden={activeTab !== 'report'}>
             <BudgetVsActual />
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }
