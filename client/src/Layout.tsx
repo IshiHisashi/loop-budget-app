@@ -64,7 +64,7 @@ const navItemClassName =
   'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-neutral-700 hover:text-rose-600 aria-[current=page]:text-rose-600 aria-[current=page]:font-medium dark:text-neutral-300 dark:hover:text-rose-300 dark:aria-[current=page]:text-rose-400'
 
 function Layout({ onLogout }: LayoutProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('budgets')
+  const [activeTab, setActiveTab] = useState<Tab>('expenses')
 
   return (
     <div className={`flex ${pageBackgroundClassName}`}>
@@ -74,21 +74,21 @@ function Layout({ onLogout }: LayoutProps) {
         <nav className="mt-6 flex flex-col gap-2">
           <button
             type="button"
-            aria-current={activeTab === 'budgets' ? 'page' : undefined}
-            onClick={() => setActiveTab('budgets')}
-            className={navItemClassName}
-          >
-            <WalletIcon />
-            Budgets
-          </button>
-          <button
-            type="button"
             aria-current={activeTab === 'expenses' ? 'page' : undefined}
             onClick={() => setActiveTab('expenses')}
             className={navItemClassName}
           >
             <ReceiptIcon />
             Expenses
+          </button>
+          <button
+            type="button"
+            aria-current={activeTab === 'budgets' ? 'page' : undefined}
+            onClick={() => setActiveTab('budgets')}
+            className={navItemClassName}
+          >
+            <WalletIcon />
+            Budgets
           </button>
           <button
             type="button"
