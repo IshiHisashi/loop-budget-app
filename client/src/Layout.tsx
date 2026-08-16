@@ -52,7 +52,7 @@ interface LayoutProps {
 }
 
 const navItemClassName =
-  'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-neutral-700 hover:bg-neutral-100 aria-[current=page]:bg-rose-100 aria-[current=page]:text-rose-700 aria-[current=page]:font-medium dark:text-neutral-300 dark:hover:bg-neutral-800 dark:aria-[current=page]:bg-rose-900/40 dark:aria-[current=page]:text-rose-300'
+  'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-neutral-700 hover:text-rose-600 aria-[current=page]:text-rose-600 aria-[current=page]:font-medium dark:text-neutral-300 dark:hover:text-rose-400 dark:aria-[current=page]:text-rose-400'
 
 function Layout({ onLogout }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<Tab>('budgets')
