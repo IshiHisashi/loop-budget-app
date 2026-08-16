@@ -51,6 +51,9 @@ interface LayoutProps {
   onLogout: () => void
 }
 
+const navItemClassName =
+  'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-neutral-700 hover:bg-neutral-100 aria-[current=page]:bg-rose-100 aria-[current=page]:text-rose-700 aria-[current=page]:font-medium dark:text-neutral-300 dark:hover:bg-neutral-800 dark:aria-[current=page]:bg-rose-900/40 dark:aria-[current=page]:text-rose-300'
+
 function Layout({ onLogout }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<Tab>('budgets')
 
@@ -64,12 +67,7 @@ function Layout({ onLogout }: LayoutProps) {
             type="button"
             aria-current={activeTab === 'budgets' ? 'page' : undefined}
             onClick={() => setActiveTab('budgets')}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2
-              text-left text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
-              aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
-              dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-              dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
-              dark:aria-[current=page]:bg-rose-500"
+            className={navItemClassName}
           >
             <WalletIcon />
             Budgets
@@ -78,12 +76,7 @@ function Layout({ onLogout }: LayoutProps) {
             type="button"
             aria-current={activeTab === 'expenses' ? 'page' : undefined}
             onClick={() => setActiveTab('expenses')}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2
-              text-left text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
-              aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
-              dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-              dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
-              dark:aria-[current=page]:bg-rose-500"
+            className={navItemClassName}
           >
             <ReceiptIcon />
             Expenses
@@ -92,12 +85,7 @@ function Layout({ onLogout }: LayoutProps) {
             type="button"
             aria-current={activeTab === 'report' ? 'page' : undefined}
             onClick={() => setActiveTab('report')}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2
-              text-left text-neutral-900 hover:bg-neutral-100 aria-[current=page]:border-rose-600
-              aria-[current=page]:bg-rose-600 aria-[current=page]:text-white
-              dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100
-              dark:hover:bg-neutral-800 dark:aria-[current=page]:border-rose-500
-              dark:aria-[current=page]:bg-rose-500"
+            className={navItemClassName}
           >
             <BarChartIcon />
             Budget vs Actual
