@@ -43,10 +43,23 @@ describe('Layout', () => {
     )
   })
 
-  it('calls onLogout when the Log out button is clicked', () => {
+  it('switches to the Settings tab', () => {
+    render(<Layout onLogout={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+
+    expect(screen.getByTestId('tab-settings')).not.toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-budgets')).toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-expenses')).toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-report')).toHaveAttribute('hidden')
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('calls onLogout when the Log out button is clicked from the Settings tab', () => {
     const onLogout = vi.fn()
     render(<Layout onLogout={onLogout} />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
 
     expect(onLogout).toHaveBeenCalledOnce()
