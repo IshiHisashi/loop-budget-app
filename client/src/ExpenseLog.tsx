@@ -10,6 +10,7 @@ import {
 } from './api/expenses.ts'
 import { currentMonth } from './dateUtils.ts'
 import ExpenseCalendar from './ExpenseCalendar.tsx'
+import Modal from './Modal.tsx'
 import {
   cardClassName as baseCardClassName,
   inputClassName,
@@ -81,6 +82,7 @@ function ExpenseLog() {
 
   const [newDraft, setNewDraft] = useState<Draft>(emptyDraft)
   const [addStatus, setAddStatus] = useState<RowStatus>({ kind: 'idle' })
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -118,7 +120,15 @@ function ExpenseLog() {
     clearTimeout(addSuccessTimer.current)
     addSuccessTimer.current = setTimeout(() => {
       setAddStatus({ kind: 'idle' })
+      setIsAddModalOpen(false)
     }, 3000)
+  }
+
+  function handleCancelAdd() {
+    clearTimeout(addSuccessTimer.current)
+    setNewDraft(emptyDraft)
+    setAddStatus({ kind: 'idle' })
+    setIsAddModalOpen(false)
   }
 
   useEffect(() => {
@@ -247,9 +257,18 @@ function ExpenseLog() {
 
   return (
     <section className={cardClassName}>
-      <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-        Expenses
-      </h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Expenses</h2>
+        {!loading && !loadError && (
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className={primaryButtonClassName}
+          >
+            + Add expense
+          </button>
+        )}
+      </div>
 
       <label className={`${labelClassName} mb-6`}>
         Month
@@ -290,87 +309,96 @@ function ExpenseLog() {
             </p>
           )}
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              handleAdd()
-            }}
-            className="mb-6 flex flex-wrap items-end gap-3 border-b border-neutral-200 pb-6 dark:border-neutral-700"
-          >
-            <label className={labelClassName}>
-              Date
-              <input
-                type="date"
-                value={newDraft.date}
-                onChange={(event) =>
-                  setNewDraft((prev) => ({ ...prev, date: event.target.value }))
-                }
-                className={inputClassName}
-              />
-            </label>
-            <label className={labelClassName}>
-              Amount
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={newDraft.amount}
-                onChange={(event) =>
-                  setNewDraft((prev) => ({ ...prev, amount: event.target.value }))
-                }
-                className={inputClassName}
-              />
-            </label>
-            <label className={labelClassName}>
-              Category
-              <select
-                value={newDraft.category}
-                onChange={(event) =>
-                  setNewDraft((prev) => ({ ...prev, category: event.target.value }))
-                }
-                className={inputClassName}
-              >
-                <option value="" disabled>
-                  Select a category
-                </option>
-                {categories.map((category) => (
-                  <option key={category._id} value={category._id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={labelClassName}>
-              Note
-              <input
-                type="text"
-                value={newDraft.note}
-                onChange={(event) =>
-                  setNewDraft((prev) => ({ ...prev, note: event.target.value }))
-                }
-                className={inputClassName}
-              />
-            </label>
-            {addStatus.kind === 'success' ? (
-              <span aria-live="polite" className={statusTextClassName(addStatus)}>
-                Added ✓
-              </span>
-            ) : (
-              <>
-                <button
-                  type="submit"
-                  disabled={addStatus.kind === 'saving'}
-                  className={primaryButtonClassName}
+          <Modal open={isAddModalOpen} onClose={handleCancelAdd} title="Add expense">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                handleAdd()
+              }}
+              className="flex flex-col gap-3"
+            >
+              <label className={labelClassName}>
+                Date
+                <input
+                  type="date"
+                  value={newDraft.date}
+                  onChange={(event) =>
+                    setNewDraft((prev) => ({ ...prev, date: event.target.value }))
+                  }
+                  className={inputClassName}
+                />
+              </label>
+              <label className={labelClassName}>
+                Amount
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={newDraft.amount}
+                  onChange={(event) =>
+                    setNewDraft((prev) => ({ ...prev, amount: event.target.value }))
+                  }
+                  className={inputClassName}
+                />
+              </label>
+              <label className={labelClassName}>
+                Category
+                <select
+                  value={newDraft.category}
+                  onChange={(event) =>
+                    setNewDraft((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                  className={inputClassName}
                 >
-                  Add
-                </button>
+                  <option value="" disabled>
+                    Select a category
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={labelClassName}>
+                Note
+                <input
+                  type="text"
+                  value={newDraft.note}
+                  onChange={(event) =>
+                    setNewDraft((prev) => ({ ...prev, note: event.target.value }))
+                  }
+                  className={inputClassName}
+                />
+              </label>
+              {addStatus.kind === 'success' ? (
                 <span aria-live="polite" className={statusTextClassName(addStatus)}>
-                  {addStatus.kind === 'saving' && 'Saving…'}
-                  {addStatus.kind === 'error' && addStatus.message}
+                  Added ✓
                 </span>
-              </>
-            )}
-          </form>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={addStatus.kind === 'saving'}
+                    className={primaryButtonClassName}
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelAdd}
+                    className={secondaryButtonClassName}
+                  >
+                    Cancel
+                  </button>
+                  <span aria-live="polite" className={statusTextClassName(addStatus)}>
+                    {addStatus.kind === 'saving' && 'Saving…'}
+                    {addStatus.kind === 'error' && addStatus.message}
+                  </span>
+                </div>
+              )}
+            </form>
+          </Modal>
 
           <ul className="flex list-none flex-col gap-2 p-0">
             {expenses
