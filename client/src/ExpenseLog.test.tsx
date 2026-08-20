@@ -501,6 +501,68 @@ describe('ExpenseLog', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
 
+  it('ignores Cancel, Escape, and backdrop-click while an add is in flight, so the stale response cannot clobber a later draft', async () => {
+    let resolvePost: (value: Response) => void
+    const postPromise = new Promise<Response>((resolve) => {
+      resolvePost = resolve
+    })
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse(janExpenses)
+      }
+      if (url.endsWith('/api/expenses') && method === 'POST') {
+        return postPromise
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    openAddModal()
+
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'cat1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Saving…')
+
+    // None of these should close the modal or reset the in-progress draft
+    // while the request is still in flight.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('dialog').parentElement as Element)
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount')).toHaveValue(75)
+
+    resolvePost!(
+      jsonResponse(
+        {
+          _id: 'exp-new',
+          date: '2026-01-25T00:00:00.000Z',
+          amount: 75,
+          category: 'cat1',
+          createdAt: '',
+          updatedAt: '',
+        },
+        201
+      )
+    )
+
+    await screen.findByText('Added ✓')
+  })
+
   it('does not let an in-flight edit land in a different month after switching', async () => {
     let resolvePatch: (value: Response) => void
     const patchPromise = new Promise<Response>((resolve) => {

@@ -125,6 +125,7 @@ function ExpenseLog() {
   }
 
   function handleCancelAdd() {
+    if (addStatus.kind === 'saving') return
     clearTimeout(addSuccessTimer.current)
     setNewDraft(emptyDraft)
     setAddStatus({ kind: 'idle' })
@@ -387,6 +388,7 @@ function ExpenseLog() {
                   <button
                     type="button"
                     onClick={handleCancelAdd}
+                    disabled={addStatus.kind === 'saving'}
                     className={secondaryButtonClassName}
                   >
                     Cancel
