@@ -87,7 +87,7 @@ function ExpenseLog() {
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map())
+  const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
   const monthRef = useRef(month)
 
   useEffect(() => {
@@ -397,95 +397,132 @@ function ExpenseLog() {
             </form>
           </Modal>
 
-          <ul className="flex list-none flex-col gap-2 p-0">
-            {expenses.map((expense) => {
-              const draft = edits[expense._id] ?? toDraft(expense)
-              const status = rowStatus[expense._id] ?? { kind: 'idle' }
-              const saving = status.kind === 'saving'
-              const isHighlighted = highlightedDay === expense.date.slice(0, 10)
+          <div className="overflow-x-auto">
+            <table className="mt-4 w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-neutral-100 dark:bg-neutral-800">
+                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                    Date
+                  </th>
+                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                    Amount
+                  </th>
+                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                    Category
+                  </th>
+                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                    Note
+                  </th>
+                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody data-testid="expense-rows">
+                {expenses.map((expense) => {
+                  const draft = edits[expense._id] ?? toDraft(expense)
+                  const status = rowStatus[expense._id] ?? { kind: 'idle' }
+                  const saving = status.kind === 'saving'
+                  const isHighlighted = highlightedDay === expense.date.slice(0, 10)
 
-              return (
-                <li
-                  key={expense._id}
-                  ref={(el) => {
-                    if (el) rowRefs.current.set(expense._id, el)
-                    else rowRefs.current.delete(expense._id)
-                  }}
-                  className={`flex flex-wrap items-center gap-2 rounded transition-colors duration-700 ${
-                    isHighlighted ? 'bg-rose-100 dark:bg-rose-900/40' : ''
-                  }`}
-                >
-                  <input
-                    type="date"
-                    aria-label="Expense date"
-                    value={draft.date}
-                    onChange={(event) => handleEditChange(expense._id, 'date', event.target.value)}
-                    className={inputClassName}
-                  />
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    aria-label="Expense amount"
-                    value={draft.amount}
-                    onChange={(event) =>
-                      handleEditChange(expense._id, 'amount', event.target.value)
-                    }
-                    className={`${inputClassName} w-24`}
-                  />
-                  <select
-                    aria-label="Expense category"
-                    value={draft.category}
-                    onChange={(event) =>
-                      handleEditChange(expense._id, 'category', event.target.value)
-                    }
-                    className={inputClassName}
-                  >
-                    {categories.map((category) => (
-                      <option key={category._id} value={category._id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    aria-label="Expense note"
-                    value={draft.note}
-                    onChange={(event) => handleEditChange(expense._id, 'note', event.target.value)}
-                    className={`${inputClassName} flex-1`}
-                  />
-                  {status.kind === 'success' ? (
-                    <span aria-live="polite" className={statusTextClassName(status)}>
-                      Saved ✓
-                    </span>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveRow(expense._id)}
-                        disabled={saving}
-                        className={primaryButtonClassName}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRow(expense._id)}
-                        disabled={saving}
-                        className={secondaryButtonClassName}
-                      >
-                        Delete
-                      </button>
-                      <span aria-live="polite" className={statusTextClassName(status)}>
-                        {status.kind === 'saving' && 'Saving…'}
-                        {status.kind === 'error' && status.message}
-                      </span>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+                  return (
+                    <tr
+                      key={expense._id}
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(expense._id, el)
+                        else rowRefs.current.delete(expense._id)
+                      }}
+                      className={`transition-colors duration-700 ${
+                        isHighlighted ? 'bg-rose-100 dark:bg-rose-900/40' : ''
+                      }`}
+                    >
+                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                        <input
+                          type="date"
+                          aria-label="Expense date"
+                          value={draft.date}
+                          onChange={(event) =>
+                            handleEditChange(expense._id, 'date', event.target.value)
+                          }
+                          className={inputClassName}
+                        />
+                      </td>
+                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          aria-label="Expense amount"
+                          value={draft.amount}
+                          onChange={(event) =>
+                            handleEditChange(expense._id, 'amount', event.target.value)
+                          }
+                          className={`${inputClassName} w-24`}
+                        />
+                      </td>
+                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                        <select
+                          aria-label="Expense category"
+                          value={draft.category}
+                          onChange={(event) =>
+                            handleEditChange(expense._id, 'category', event.target.value)
+                          }
+                          className={inputClassName}
+                        >
+                          {categories.map((category) => (
+                            <option key={category._id} value={category._id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                        <input
+                          type="text"
+                          aria-label="Expense note"
+                          value={draft.note}
+                          onChange={(event) =>
+                            handleEditChange(expense._id, 'note', event.target.value)
+                          }
+                          className={`${inputClassName} flex-1`}
+                        />
+                      </td>
+                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                        {status.kind === 'success' ? (
+                          <span aria-live="polite" className={statusTextClassName(status)}>
+                            Saved ✓
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveRow(expense._id)}
+                              disabled={saving}
+                              className={primaryButtonClassName}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRow(expense._id)}
+                              disabled={saving}
+                              className={secondaryButtonClassName}
+                            >
+                              Delete
+                            </button>
+                            <span aria-live="polite" className={statusTextClassName(status)}>
+                              {status.kind === 'saving' && 'Saving…'}
+                              {status.kind === 'error' && status.message}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </section>
