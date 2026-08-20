@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 
 // RTL's auto-cleanup relies on detecting a global `afterEach`, which
 // isn't present here since vite.config.ts doesn't set `test.globals`
@@ -12,3 +12,7 @@ import { afterEach } from 'vitest'
 afterEach(() => {
   cleanup()
 })
+
+// jsdom doesn't implement scrollIntoView at all — calling it throws.
+// Stubbed globally so any component/test can call it without a crash.
+Element.prototype.scrollIntoView = vi.fn()

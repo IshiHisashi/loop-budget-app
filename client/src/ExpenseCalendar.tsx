@@ -10,8 +10,7 @@ interface DayTotal {
 interface ExpenseCalendarProps {
   month: string
   expenses: Expense[]
-  selectedDay: string | null
-  onSelectDay: (day: string | null) => void
+  onDayClick: (day: string) => void
 }
 
 function daysInMonth(year: number, monthNumber: number): number {
@@ -41,7 +40,7 @@ function aggregateByDay(expenses: Expense[]): Map<string, DayTotal> {
   return byDay
 }
 
-function ExpenseCalendar({ month, expenses, selectedDay, onSelectDay }: ExpenseCalendarProps) {
+function ExpenseCalendar({ month, expenses, onDayClick }: ExpenseCalendarProps) {
   const [year, monthNumber] = month.split('-').map(Number)
   const totalDays = daysInMonth(year, monthNumber)
   const leadingBlanks = firstWeekday(year, monthNumber)
@@ -51,8 +50,6 @@ function ExpenseCalendar({ month, expenses, selectedDay, onSelectDay }: ExpenseC
     'flex h-16 flex-col items-center justify-center rounded border border-transparent text-sm'
   const dayButtonClassName =
     'flex h-16 flex-col items-center justify-center rounded border border-neutral-300 bg-neutral-50 text-sm hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-rose-900/30'
-  const selectedDayButtonClassName =
-    'flex h-16 flex-col items-center justify-center rounded border border-rose-500 bg-rose-100 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-rose-400 dark:bg-rose-900/50'
 
   return (
     <div className="mb-6">
@@ -83,15 +80,12 @@ function ExpenseCalendar({ month, expenses, selectedDay, onSelectDay }: ExpenseC
             )
           }
 
-          const isSelected = selectedDay === day
-
           return (
             <button
               key={day}
               type="button"
-              aria-pressed={isSelected}
-              onClick={() => onSelectDay(isSelected ? null : day)}
-              className={isSelected ? selectedDayButtonClassName : dayButtonClassName}
+              onClick={() => onDayClick(day)}
+              className={dayButtonClassName}
             >
               <span className="text-neutral-900 dark:text-neutral-100">{dayOfMonth}</span>
               <span className="text-xs text-neutral-600 dark:text-neutral-400">
