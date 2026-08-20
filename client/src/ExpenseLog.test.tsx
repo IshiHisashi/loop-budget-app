@@ -99,6 +99,10 @@ function selectJanuary() {
   fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-01' } })
 }
 
+function openAddModal() {
+  fireEvent.click(screen.getByRole('button', { name: '+ Add expense' }))
+}
+
 beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch())
 })
@@ -137,6 +141,7 @@ describe('ExpenseLog', () => {
     await screen.findByDisplayValue('50')
     selectJanuary()
     await screen.findByDisplayValue('50')
+    openAddModal()
 
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
@@ -162,6 +167,7 @@ describe('ExpenseLog', () => {
     await screen.findByDisplayValue('50')
     selectJanuary()
     await screen.findByDisplayValue('50')
+    openAddModal()
 
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-02-01' } })
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
@@ -176,6 +182,7 @@ describe('ExpenseLog', () => {
   it('rejects invalid add input client-side without calling the API', async () => {
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
+    openAddModal()
 
     const postCallsBefore = vi.mocked(fetch).mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
@@ -269,6 +276,7 @@ describe('ExpenseLog', () => {
       await screen.findByDisplayValue('50')
       selectJanuary()
       await screen.findByDisplayValue('50')
+      openAddModal()
 
       fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
       fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
@@ -277,13 +285,13 @@ describe('ExpenseLog', () => {
 
       await screen.findByText('Added ✓')
       expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3000)
       })
 
-      expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
-      expect(screen.queryByText('Added ✓')).not.toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }
@@ -461,7 +469,8 @@ describe('ExpenseLog', () => {
     render(<ExpenseLog />)
     const monthInput = await screen.findByLabelText('Month')
     fireEvent.change(monthInput, { target: { value: '2026-01' } })
-    await screen.findByRole('button', { name: 'Add' })
+    await screen.findByRole('button', { name: '+ Add expense' })
+    openAddModal()
 
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
@@ -490,6 +499,68 @@ describe('ExpenseLog', () => {
     })
     expect(screen.queryByDisplayValue('75')).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
+  })
+
+  it('ignores Cancel, Escape, and backdrop-click while an add is in flight, so the stale response cannot clobber a later draft', async () => {
+    let resolvePost: (value: Response) => void
+    const postPromise = new Promise<Response>((resolve) => {
+      resolvePost = resolve
+    })
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse(janExpenses)
+      }
+      if (url.endsWith('/api/expenses') && method === 'POST') {
+        return postPromise
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    openAddModal()
+
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-01-25' } })
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'cat1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Saving…')
+
+    // None of these should close the modal or reset the in-progress draft
+    // while the request is still in flight.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('dialog').parentElement as Element)
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount')).toHaveValue(75)
+
+    resolvePost!(
+      jsonResponse(
+        {
+          _id: 'exp-new',
+          date: '2026-01-25T00:00:00.000Z',
+          amount: 75,
+          category: 'cat1',
+          createdAt: '',
+          updatedAt: '',
+        },
+        201
+      )
+    )
+
+    await screen.findByText('Added ✓')
   })
 
   it('does not let an in-flight edit land in a different month after switching', async () => {
@@ -623,5 +694,65 @@ describe('ExpenseLog', () => {
     await waitFor(() => {
       expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
     })
+  })
+
+  it('shows the add-expense form in a dialog when the trigger is clicked', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    openAddModal()
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Date')).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount')).toBeInTheDocument()
+    expect(screen.getByLabelText('Category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Note')).toBeInTheDocument()
+  })
+
+  it('discards typed-but-unsubmitted input when closed via Cancel', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    openAddModal()
+
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    openAddModal()
+
+    expect(screen.getByLabelText('Amount')).toHaveValue(null)
+  })
+
+  it('discards typed-but-unsubmitted input when closed via Escape', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    openAddModal()
+
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    openAddModal()
+
+    expect(screen.getByLabelText('Amount')).toHaveValue(null)
+  })
+
+  it('discards typed-but-unsubmitted input when closed via backdrop click', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+    openAddModal()
+
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    fireEvent.click(screen.getByRole('dialog').parentElement as Element)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    openAddModal()
+
+    expect(screen.getByLabelText('Amount')).toHaveValue(null)
   })
 })
