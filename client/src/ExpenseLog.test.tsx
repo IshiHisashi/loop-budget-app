@@ -116,7 +116,7 @@ describe('ExpenseLog', () => {
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
 
-    const rows = screen.getAllByRole('listitem')
+    const rows = within(screen.getByTestId('expense-rows')).getAllByRole('row')
     expect(rows).toHaveLength(2)
     expect(within(rows[0]).getByDisplayValue('50')).toBeInTheDocument()
     expect(within(rows[1]).getByDisplayValue('1200')).toBeInTheDocument()
@@ -176,7 +176,7 @@ describe('ExpenseLog', () => {
 
     await screen.findByText('Added ✓')
     expect(screen.queryByDisplayValue('75')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
   })
 
   it('rejects invalid add input client-side without calling the API', async () => {
@@ -197,7 +197,7 @@ describe('ExpenseLog', () => {
     selectJanuary()
     await screen.findByDisplayValue('50')
 
-    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    const foodRow = screen.getByDisplayValue('50').closest('tr') as HTMLElement
     fireEvent.change(within(foodRow).getByLabelText('Expense amount'), {
       target: { value: '65' },
     })
@@ -227,7 +227,7 @@ describe('ExpenseLog', () => {
     selectJanuary()
     await screen.findByDisplayValue('50')
 
-    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    const foodRow = screen.getByDisplayValue('50').closest('tr') as HTMLElement
     fireEvent.change(within(foodRow).getByLabelText('Expense date'), {
       target: { value: '2026-02-05' },
     })
@@ -236,7 +236,7 @@ describe('ExpenseLog', () => {
     await waitFor(() => {
       expect(screen.queryByDisplayValue('50')).not.toBeInTheDocument()
     })
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(1)
   })
 
   it('replaces row Save/Delete with the success message, then restores them after 3 seconds', async () => {
@@ -247,7 +247,7 @@ describe('ExpenseLog', () => {
       selectJanuary()
       await screen.findByDisplayValue('50')
 
-      const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+      const foodRow = screen.getByDisplayValue('50').closest('tr') as HTMLElement
       fireEvent.change(within(foodRow).getByLabelText('Expense amount'), {
         target: { value: '65' },
       })
@@ -303,7 +303,7 @@ describe('ExpenseLog', () => {
     selectJanuary()
     await screen.findByDisplayValue('50')
 
-    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    const foodRow = screen.getByDisplayValue('50').closest('tr') as HTMLElement
     fireEvent.change(within(foodRow).getByLabelText('Expense note'), {
       target: { value: '' },
     })
@@ -333,7 +333,7 @@ describe('ExpenseLog', () => {
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
 
-    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    const foodRow = screen.getByDisplayValue('50').closest('tr') as HTMLElement
     fireEvent.change(within(foodRow).getByLabelText('Expense amount'), {
       target: { value: '65' },
     })
@@ -347,7 +347,7 @@ describe('ExpenseLog', () => {
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
 
-    const rentRow = screen.getByDisplayValue('1200').closest('li') as HTMLElement
+    const rentRow = screen.getByDisplayValue('1200').closest('tr') as HTMLElement
     fireEvent.click(within(rentRow).getByRole('button', { name: 'Delete' }))
 
     await waitFor(() => {
@@ -498,7 +498,7 @@ describe('ExpenseLog', () => {
       expect(screen.getByDisplayValue('99')).toBeInTheDocument()
     })
     expect(screen.queryByDisplayValue('75')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(1)
   })
 
   it('ignores Cancel, Escape, and backdrop-click while an add is in flight, so the stale response cannot clobber a later draft', async () => {
@@ -630,7 +630,7 @@ describe('ExpenseLog', () => {
       expect(screen.getByDisplayValue('99')).toBeInTheDocument()
     })
     expect(screen.queryByDisplayValue('65')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(1)
   })
 
   it('renders the calendar above the expense table', async () => {
@@ -638,11 +638,25 @@ describe('ExpenseLog', () => {
     await screen.findByDisplayValue('50')
 
     const calendarGrid = container.querySelector('.grid') as HTMLElement
-    const table = screen.getByRole('list')
+    const table = screen.getByRole('table')
     expect(calendarGrid).not.toBeNull()
     expect(
       calendarGrid.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+  })
+
+  it('renders the expected column headers, in order', async () => {
+    render(<ExpenseLog />)
+    await screen.findByDisplayValue('50')
+
+    const headers = within(screen.getByRole('table')).getAllByRole('columnheader')
+    expect(headers.map((header) => header.textContent)).toEqual([
+      'Date',
+      'Amount',
+      'Category',
+      'Note',
+      'Actions',
+    ])
   })
 
   it("scrolls to and highlights that day's row when a calendar day is clicked, without hiding other rows", async () => {
@@ -654,15 +668,15 @@ describe('ExpenseLog', () => {
     selectJanuary()
     await screen.findByDisplayValue('50')
 
-    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
 
-    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
-    const rentRow = screen.getByDisplayValue('1200').closest('li') as HTMLElement
+    const foodRow = screen.getByDisplayValue('50').closest('tr') as HTMLElement
+    const rentRow = screen.getByDisplayValue('1200').closest('tr') as HTMLElement
 
     fireEvent.click(screen.getByRole('button', { name: /^20\$50\.00$/ }))
 
     // Nothing is hidden — both rows are still present.
-    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
     expect(screen.getByDisplayValue('1200')).toBeInTheDocument()
 
     // Scrolled to the matching row, and highlighted just that one.
@@ -683,11 +697,11 @@ describe('ExpenseLog', () => {
 
     const dayButton = screen.getByRole('button', { name: /^20\$50\.00$/ })
     fireEvent.click(dayButton)
-    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
 
     fireEvent.click(dayButton)
-    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
     expect(scrollIntoView).toHaveBeenCalledTimes(2)
   })
 
