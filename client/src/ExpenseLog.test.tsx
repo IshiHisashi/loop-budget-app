@@ -645,7 +645,10 @@ describe('ExpenseLog', () => {
     ).toBeTruthy()
   })
 
-  it('filters the table to the selected day when a calendar day is clicked, and clears via the Clear control', async () => {
+  it("scrolls to and highlights that day's row when a calendar day is clicked, without hiding other rows", async () => {
+    const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView)
+    scrollIntoView.mockClear()
+
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
     selectJanuary()
@@ -653,20 +656,26 @@ describe('ExpenseLog', () => {
 
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
 
+    const foodRow = screen.getByDisplayValue('50').closest('li') as HTMLElement
+    const rentRow = screen.getByDisplayValue('1200').closest('li') as HTMLElement
+
     fireEvent.click(screen.getByRole('button', { name: /^20\$50\.00$/ }))
 
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
-    expect(screen.getByDisplayValue('50')).toBeInTheDocument()
-    expect(screen.queryByDisplayValue('1200')).not.toBeInTheDocument()
-    expect(screen.getByText(/Showing 2026-01-20/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByText('Clear'))
-
+    // Nothing is hidden — both rows are still present.
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('1200')).toBeInTheDocument()
+
+    // Scrolled to the matching row, and highlighted just that one.
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    expect(scrollIntoView.mock.contexts.at(-1)).toBe(foodRow)
+    expect(foodRow.className).toContain('bg-rose-100')
+    expect(rentRow.className).not.toContain('bg-rose-100')
   })
 
-  it('toggles the day filter off when clicking the already-selected day again', async () => {
+  it('re-scrolls on repeated clicks of the same day instead of toggling a filter off', async () => {
+    const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView)
+    scrollIntoView.mockClear()
+
     render(<ExpenseLog />)
     await screen.findByDisplayValue('50')
     selectJanuary()
@@ -674,26 +683,12 @@ describe('ExpenseLog', () => {
 
     const dayButton = screen.getByRole('button', { name: /^20\$50\.00$/ })
     fireEvent.click(dayButton)
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
 
     fireEvent.click(dayButton)
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
-  })
-
-  it('clears an active day filter when the month changes', async () => {
-    render(<ExpenseLog />)
-    await screen.findByDisplayValue('50')
-    selectJanuary()
-    await screen.findByDisplayValue('50')
-
-    fireEvent.click(screen.getByRole('button', { name: /^20\$50\.00$/ }))
-    expect(screen.getByText(/Showing 2026-01-20/)).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-02' } })
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
-    })
+    expect(scrollIntoView).toHaveBeenCalledTimes(2)
   })
 
   it('shows the add-expense form in a dialog when the trigger is clicked', async () => {

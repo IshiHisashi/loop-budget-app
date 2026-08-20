@@ -72,7 +72,7 @@ const emptyDraft: Draft = {
 
 function ExpenseLog() {
   const [month, setMonth] = useState(currentMonth())
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [highlightedDay, setHighlightedDay] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [edits, setEdits] = useState<Record<string, Draft>>({})
@@ -86,6 +86,8 @@ function ExpenseLog() {
 
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map())
   const monthRef = useRef(month)
 
   useEffect(() => {
@@ -96,9 +98,19 @@ function ExpenseLog() {
     const rowTimers = rowSuccessTimers.current
     return () => {
       clearTimeout(addSuccessTimer.current)
+      clearTimeout(highlightTimer.current)
       Object.values(rowTimers).forEach(clearTimeout)
     }
   }, [])
+
+  function handleDayClick(day: string) {
+    clearTimeout(highlightTimer.current)
+    const target = expenses.find((expense) => expense.date.slice(0, 10) === day)
+    const targetRow = target && rowRefs.current.get(target._id)
+    targetRow?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedDay(day)
+    highlightTimer.current = setTimeout(() => setHighlightedDay(null), 1500)
+  }
 
   function clearRowSuccessTimer(id: string) {
     const timer = rowSuccessTimers.current[id]
@@ -136,7 +148,8 @@ function ExpenseLog() {
     let cancelled = false
     setLoading(true)
     setLoadError(null)
-    setSelectedDay(null)
+    clearTimeout(highlightTimer.current)
+    setHighlightedDay(null)
     Promise.all([getCategories(), getExpenses(month)])
       .then(([categoriesResult, expensesResult]) => {
         if (cancelled) return
@@ -290,25 +303,7 @@ function ExpenseLog() {
 
       {!loading && !loadError && (
         <>
-          <ExpenseCalendar
-            month={month}
-            expenses={expenses}
-            selectedDay={selectedDay}
-            onSelectDay={setSelectedDay}
-          />
-
-          {selectedDay && (
-            <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
-              Showing {selectedDay} ·{' '}
-              <button
-                type="button"
-                onClick={() => setSelectedDay(null)}
-                className="underline hover:text-neutral-900 dark:hover:text-neutral-100"
-              >
-                Clear
-              </button>
-            </p>
-          )}
+          <ExpenseCalendar month={month} expenses={expenses} onDayClick={handleDayClick} />
 
           <Modal open={isAddModalOpen} onClose={handleCancelAdd} title="Add expense">
             <form
@@ -403,89 +398,93 @@ function ExpenseLog() {
           </Modal>
 
           <ul className="flex list-none flex-col gap-2 p-0">
-            {expenses
-              .filter((expense) => !selectedDay || expense.date.slice(0, 10) === selectedDay)
-              .map((expense) => {
-                const draft = edits[expense._id] ?? toDraft(expense)
-                const status = rowStatus[expense._id] ?? { kind: 'idle' }
-                const saving = status.kind === 'saving'
+            {expenses.map((expense) => {
+              const draft = edits[expense._id] ?? toDraft(expense)
+              const status = rowStatus[expense._id] ?? { kind: 'idle' }
+              const saving = status.kind === 'saving'
+              const isHighlighted = highlightedDay === expense.date.slice(0, 10)
 
-                return (
-                  <li key={expense._id} className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="date"
-                      aria-label="Expense date"
-                      value={draft.date}
-                      onChange={(event) =>
-                        handleEditChange(expense._id, 'date', event.target.value)
-                      }
-                      className={inputClassName}
-                    />
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      aria-label="Expense amount"
-                      value={draft.amount}
-                      onChange={(event) =>
-                        handleEditChange(expense._id, 'amount', event.target.value)
-                      }
-                      className={`${inputClassName} w-24`}
-                    />
-                    <select
-                      aria-label="Expense category"
-                      value={draft.category}
-                      onChange={(event) =>
-                        handleEditChange(expense._id, 'category', event.target.value)
-                      }
-                      className={inputClassName}
-                    >
-                      {categories.map((category) => (
-                        <option key={category._id} value={category._id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      aria-label="Expense note"
-                      value={draft.note}
-                      onChange={(event) =>
-                        handleEditChange(expense._id, 'note', event.target.value)
-                      }
-                      className={`${inputClassName} flex-1`}
-                    />
-                    {status.kind === 'success' ? (
+              return (
+                <li
+                  key={expense._id}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(expense._id, el)
+                    else rowRefs.current.delete(expense._id)
+                  }}
+                  className={`flex flex-wrap items-center gap-2 rounded transition-colors duration-700 ${
+                    isHighlighted ? 'bg-rose-100 dark:bg-rose-900/40' : ''
+                  }`}
+                >
+                  <input
+                    type="date"
+                    aria-label="Expense date"
+                    value={draft.date}
+                    onChange={(event) => handleEditChange(expense._id, 'date', event.target.value)}
+                    className={inputClassName}
+                  />
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    aria-label="Expense amount"
+                    value={draft.amount}
+                    onChange={(event) =>
+                      handleEditChange(expense._id, 'amount', event.target.value)
+                    }
+                    className={`${inputClassName} w-24`}
+                  />
+                  <select
+                    aria-label="Expense category"
+                    value={draft.category}
+                    onChange={(event) =>
+                      handleEditChange(expense._id, 'category', event.target.value)
+                    }
+                    className={inputClassName}
+                  >
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    aria-label="Expense note"
+                    value={draft.note}
+                    onChange={(event) => handleEditChange(expense._id, 'note', event.target.value)}
+                    className={`${inputClassName} flex-1`}
+                  />
+                  {status.kind === 'success' ? (
+                    <span aria-live="polite" className={statusTextClassName(status)}>
+                      Saved ✓
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRow(expense._id)}
+                        disabled={saving}
+                        className={primaryButtonClassName}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRow(expense._id)}
+                        disabled={saving}
+                        className={secondaryButtonClassName}
+                      >
+                        Delete
+                      </button>
                       <span aria-live="polite" className={statusTextClassName(status)}>
-                        Saved ✓
+                        {status.kind === 'saving' && 'Saving…'}
+                        {status.kind === 'error' && status.message}
                       </span>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveRow(expense._id)}
-                          disabled={saving}
-                          className={primaryButtonClassName}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRow(expense._id)}
-                          disabled={saving}
-                          className={secondaryButtonClassName}
-                        >
-                          Delete
-                        </button>
-                        <span aria-live="polite" className={statusTextClassName(status)}>
-                          {status.kind === 'saving' && 'Saving…'}
-                          {status.kind === 'error' && status.message}
-                        </span>
-                      </>
-                    )}
-                  </li>
-                )
-              })}
+                    </>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </>
       )}
