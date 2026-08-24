@@ -127,10 +127,20 @@ function ExpenseLog() {
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
   const monthRef = useRef(month)
+  const editingIdRef = useRef(editingId)
+  const deletingIdRef = useRef(deletingId)
 
   useEffect(() => {
     monthRef.current = month
   }, [month])
+
+  useEffect(() => {
+    editingIdRef.current = editingId
+  }, [editingId])
+
+  useEffect(() => {
+    deletingIdRef.current = deletingId
+  }, [deletingId])
 
   useEffect(() => {
     return () => {
@@ -242,6 +252,7 @@ function ExpenseLog() {
 
   async function handleSaveEdit() {
     if (!editingId) return
+    const targetId = editingId
     const parsed = parseDraft(editDraft)
     if (!parsed) {
       setEditStatus({ kind: 'error', message: 'Enter a date, category, and a positive amount' })
@@ -250,32 +261,41 @@ function ExpenseLog() {
 
     setEditStatus({ kind: 'saving' })
     try {
-      const updated = await updateExpense(editingId, parsed)
+      const updated = await updateExpense(targetId, parsed)
       if (updated.date.slice(0, 7) === monthRef.current) {
         setExpenses((prev) =>
-          sortByDateDesc(prev.map((expense) => (expense._id === editingId ? updated : expense)))
+          sortByDateDesc(prev.map((expense) => (expense._id === targetId ? updated : expense)))
         )
       } else {
-        setExpenses((prev) => prev.filter((expense) => expense._id !== editingId))
+        setExpenses((prev) => prev.filter((expense) => expense._id !== targetId))
       }
-      setEditingId(null)
-      setEditDraft(emptyDraft)
-      setEditStatus({ kind: 'idle' })
+      if (editingIdRef.current === targetId) {
+        setEditingId(null)
+        setEditDraft(emptyDraft)
+        setEditStatus({ kind: 'idle' })
+      }
     } catch (err) {
-      setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      if (editingIdRef.current === targetId) {
+        setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
     }
   }
 
   async function handleConfirmDelete() {
     if (!deletingId) return
+    const targetId = deletingId
     setDeleteStatus({ kind: 'saving' })
     try {
-      await deleteExpense(deletingId)
-      setExpenses((prev) => prev.filter((expense) => expense._id !== deletingId))
-      setDeletingId(null)
-      setDeleteStatus({ kind: 'idle' })
+      await deleteExpense(targetId)
+      setExpenses((prev) => prev.filter((expense) => expense._id !== targetId))
+      if (deletingIdRef.current === targetId) {
+        setDeletingId(null)
+        setDeleteStatus({ kind: 'idle' })
+      }
     } catch (err) {
-      setDeleteStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      if (deletingIdRef.current === targetId) {
+        setDeleteStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
     }
   }
 
