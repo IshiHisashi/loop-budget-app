@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { SVGProps, useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import {
   createExpense,
@@ -70,13 +70,45 @@ const emptyDraft: Draft = {
   note: '',
 }
 
+function iconProps(props: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
+  return {
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.75,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    className: 'h-4 w-4 shrink-0',
+    'aria-hidden': true,
+    ...props,
+  }
+}
+
+function EditIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function DeleteIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
 function ExpenseLog() {
   const [month, setMonth] = useState(currentMonth())
   const [highlightedDay, setHighlightedDay] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
-  const [edits, setEdits] = useState<Record<string, Draft>>({})
-  const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -84,22 +116,36 @@ function ExpenseLog() {
   const [addStatus, setAddStatus] = useState<RowStatus>({ kind: 'idle' })
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<Draft>(emptyDraft)
+  const [editStatus, setEditStatus] = useState<RowStatus>({ kind: 'idle' })
+
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteStatus, setDeleteStatus] = useState<RowStatus>({ kind: 'idle' })
+
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const rowSuccessTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
   const monthRef = useRef(month)
+  const editingIdRef = useRef(editingId)
+  const deletingIdRef = useRef(deletingId)
 
   useEffect(() => {
     monthRef.current = month
   }, [month])
 
   useEffect(() => {
-    const rowTimers = rowSuccessTimers.current
+    editingIdRef.current = editingId
+  }, [editingId])
+
+  useEffect(() => {
+    deletingIdRef.current = deletingId
+  }, [deletingId])
+
+  useEffect(() => {
     return () => {
       clearTimeout(addSuccessTimer.current)
       clearTimeout(highlightTimer.current)
-      Object.values(rowTimers).forEach(clearTimeout)
     }
   }, [])
 
@@ -110,22 +156,6 @@ function ExpenseLog() {
     targetRow?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     setHighlightedDay(day)
     highlightTimer.current = setTimeout(() => setHighlightedDay(null), 1500)
-  }
-
-  function clearRowSuccessTimer(id: string) {
-    const timer = rowSuccessTimers.current[id]
-    if (timer) {
-      clearTimeout(timer)
-      delete rowSuccessTimers.current[id]
-    }
-  }
-
-  function scheduleRowSuccessReset(id: string) {
-    clearRowSuccessTimer(id)
-    rowSuccessTimers.current[id] = setTimeout(() => {
-      delete rowSuccessTimers.current[id]
-      setRowStatus((prev) => ({ ...prev, [id]: { kind: 'idle' } }))
-    }, 3000)
   }
 
   function scheduleAddSuccessReset() {
@@ -144,20 +174,45 @@ function ExpenseLog() {
     setIsAddModalOpen(false)
   }
 
+  function handleOpenEdit(expense: Expense) {
+    setEditingId(expense._id)
+    setEditDraft(toDraft(expense))
+    setEditStatus({ kind: 'idle' })
+  }
+
+  function handleCancelEdit() {
+    if (editStatus.kind === 'saving') return
+    setEditingId(null)
+    setEditDraft(emptyDraft)
+    setEditStatus({ kind: 'idle' })
+  }
+
+  function handleOpenDelete(id: string) {
+    setDeletingId(id)
+    setDeleteStatus({ kind: 'idle' })
+  }
+
+  function handleCancelDelete() {
+    if (deleteStatus.kind === 'saving') return
+    setDeletingId(null)
+    setDeleteStatus({ kind: 'idle' })
+  }
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setLoadError(null)
     clearTimeout(highlightTimer.current)
     setHighlightedDay(null)
+    setEditingId(null)
+    setEditStatus({ kind: 'idle' })
+    setDeletingId(null)
+    setDeleteStatus({ kind: 'idle' })
     Promise.all([getCategories(), getExpenses(month)])
       .then(([categoriesResult, expensesResult]) => {
         if (cancelled) return
         setCategories(categoriesResult)
         setExpenses(expensesResult)
-        setEdits(
-          Object.fromEntries(expensesResult.map((expense) => [expense._id, toDraft(expense)]))
-        )
         setNewDraft((prev) => ({ ...prev, category: categoriesResult[0]?._id ?? '' }))
       })
       .catch((err: unknown) => {
@@ -173,10 +228,6 @@ function ExpenseLog() {
     }
   }, [month])
 
-  function handleEditChange(id: string, field: keyof Draft, value: string) {
-    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
-  }
-
   async function handleAdd() {
     clearTimeout(addSuccessTimer.current)
     const parsed = parseDraft(newDraft)
@@ -190,7 +241,6 @@ function ExpenseLog() {
       const created = await createExpense(parsed)
       if (created.date.slice(0, 7) === monthRef.current) {
         setExpenses((prev) => sortByDateDesc([...prev, created]))
-        setEdits((prev) => ({ ...prev, [created._id]: toDraft(created) }))
       }
       setNewDraft((prev) => ({ ...emptyDraft, date: prev.date, category: prev.category }))
       setAddStatus({ kind: 'success' })
@@ -200,74 +250,61 @@ function ExpenseLog() {
     }
   }
 
-  async function handleSaveRow(id: string) {
-    clearRowSuccessTimer(id)
-    const draft = edits[id]
-    const parsed = draft && parseDraft(draft)
+  async function handleSaveEdit() {
+    if (!editingId) return
+    const targetId = editingId
+    const parsed = parseDraft(editDraft)
     if (!parsed) {
-      setRowStatus((prev) => ({
-        ...prev,
-        [id]: { kind: 'error', message: 'Enter a date, category, and a positive amount' },
-      }))
+      setEditStatus({ kind: 'error', message: 'Enter a date, category, and a positive amount' })
       return
     }
 
-    setRowStatus((prev) => ({ ...prev, [id]: { kind: 'saving' } }))
+    setEditStatus({ kind: 'saving' })
     try {
-      const updated = await updateExpense(id, parsed)
+      const updated = await updateExpense(targetId, parsed)
       if (updated.date.slice(0, 7) === monthRef.current) {
         setExpenses((prev) =>
-          sortByDateDesc(prev.map((expense) => (expense._id === id ? updated : expense)))
+          sortByDateDesc(prev.map((expense) => (expense._id === targetId ? updated : expense)))
         )
-        setEdits((prev) => ({ ...prev, [id]: toDraft(updated) }))
-        setRowStatus((prev) => ({ ...prev, [id]: { kind: 'success' } }))
-        scheduleRowSuccessReset(id)
       } else {
-        setExpenses((prev) => prev.filter((expense) => expense._id !== id))
-        setEdits((prev) => {
-          const next = { ...prev }
-          delete next[id]
-          return next
-        })
-        setRowStatus((prev) => {
-          const next = { ...prev }
-          delete next[id]
-          return next
-        })
+        setExpenses((prev) => prev.filter((expense) => expense._id !== targetId))
+      }
+      if (editingIdRef.current === targetId) {
+        setEditingId(null)
+        setEditDraft(emptyDraft)
+        setEditStatus({ kind: 'idle' })
       }
     } catch (err) {
-      setRowStatus((prev) => ({
-        ...prev,
-        [id]: { kind: 'error', message: err instanceof Error ? err.message : String(err) },
-      }))
+      if (editingIdRef.current === targetId) {
+        setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
     }
   }
 
-  async function handleDeleteRow(id: string) {
-    clearRowSuccessTimer(id)
-    setRowStatus((prev) => ({ ...prev, [id]: { kind: 'saving' } }))
+  async function handleConfirmDelete() {
+    if (!deletingId) return
+    const targetId = deletingId
+    setDeleteStatus({ kind: 'saving' })
     try {
-      await deleteExpense(id)
-      setExpenses((prev) => prev.filter((expense) => expense._id !== id))
-      setEdits((prev) => {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      })
-      setRowStatus((prev) => {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      })
+      await deleteExpense(targetId)
+      setExpenses((prev) => prev.filter((expense) => expense._id !== targetId))
+      if (deletingIdRef.current === targetId) {
+        setDeletingId(null)
+        setDeleteStatus({ kind: 'idle' })
+      }
     } catch (err) {
-      setRowStatus((prev) => ({
-        ...prev,
-        [id]: { kind: 'error', message: err instanceof Error ? err.message : String(err) },
-      }))
+      if (deletingIdRef.current === targetId) {
+        setDeleteStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
     }
   }
 
   const cardClassName = `${baseCardClassName} mb-6`
+  const deletingExpense = expenses.find((expense) => expense._id === deletingId) ?? null
+  const deletingCategoryName = deletingExpense
+    ? (categories.find((category) => category._id === deletingExpense.category)?.name ??
+      deletingExpense.category)
+    : null
 
   return (
     <section className={cardClassName}>
@@ -397,6 +434,126 @@ function ExpenseLog() {
             </form>
           </Modal>
 
+          <Modal open={editingId !== null} onClose={handleCancelEdit} title="Edit expense">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                handleSaveEdit()
+              }}
+              className="flex flex-col gap-3"
+            >
+              <label className={labelClassName}>
+                Date
+                <input
+                  type="date"
+                  value={editDraft.date}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, date: event.target.value }))
+                  }
+                  className={inputClassName}
+                />
+              </label>
+              <label className={labelClassName}>
+                Amount
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={editDraft.amount}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, amount: event.target.value }))
+                  }
+                  className={inputClassName}
+                />
+              </label>
+              <label className={labelClassName}>
+                Category
+                <select
+                  value={editDraft.category}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                  className={inputClassName}
+                >
+                  <option value="" disabled>
+                    Select a category
+                  </option>
+                  {categories.map((category) => (
+                    <option key={category._id} value={category._id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={labelClassName}>
+                Note
+                <input
+                  type="text"
+                  value={editDraft.note}
+                  onChange={(event) =>
+                    setEditDraft((prev) => ({ ...prev, note: event.target.value }))
+                  }
+                  className={inputClassName}
+                />
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={editStatus.kind === 'saving'}
+                  className={primaryButtonClassName}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={editStatus.kind === 'saving'}
+                  className={secondaryButtonClassName}
+                >
+                  Cancel
+                </button>
+                <span aria-live="polite" className={statusTextClassName(editStatus)}>
+                  {editStatus.kind === 'saving' && 'Saving…'}
+                  {editStatus.kind === 'error' && editStatus.message}
+                </span>
+              </div>
+            </form>
+          </Modal>
+
+          <Modal open={deletingId !== null} onClose={handleCancelDelete} title="Delete expense">
+            <div className="flex flex-col gap-3">
+              {deletingExpense && (
+                <p className="text-neutral-700 dark:text-neutral-300">
+                  Delete this expense — {deletingExpense.date.slice(0, 10)} · $
+                  {deletingExpense.amount.toFixed(2)} · {deletingCategoryName}
+                  {deletingExpense.note ? ` · ${deletingExpense.note}` : ''}?
+                </p>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={deleteStatus.kind === 'saving'}
+                  className={primaryButtonClassName}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  disabled={deleteStatus.kind === 'saving'}
+                  className={secondaryButtonClassName}
+                >
+                  Cancel
+                </button>
+                <span aria-live="polite" className={statusTextClassName(deleteStatus)}>
+                  {deleteStatus.kind === 'saving' && 'Deleting…'}
+                  {deleteStatus.kind === 'error' && deleteStatus.message}
+                </span>
+              </div>
+            </div>
+          </Modal>
+
           <div className="overflow-x-auto">
             <table className="mt-4 w-full border-collapse text-left">
               <thead>
@@ -420,10 +577,10 @@ function ExpenseLog() {
               </thead>
               <tbody data-testid="expense-rows">
                 {expenses.map((expense) => {
-                  const draft = edits[expense._id] ?? toDraft(expense)
-                  const status = rowStatus[expense._id] ?? { kind: 'idle' }
-                  const saving = status.kind === 'saving'
                   const isHighlighted = highlightedDay === expense.date.slice(0, 10)
+                  const categoryName =
+                    categories.find((category) => category._id === expense.category)?.name ??
+                    expense.category
 
                   return (
                     <tr
@@ -437,85 +594,36 @@ function ExpenseLog() {
                       }`}
                     >
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <input
-                          type="date"
-                          aria-label="Expense date"
-                          value={draft.date}
-                          onChange={(event) =>
-                            handleEditChange(expense._id, 'date', event.target.value)
-                          }
-                          className={inputClassName}
-                        />
+                        {expense.date.slice(0, 10)}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          aria-label="Expense amount"
-                          value={draft.amount}
-                          onChange={(event) =>
-                            handleEditChange(expense._id, 'amount', event.target.value)
-                          }
-                          className={`${inputClassName} w-24`}
-                        />
+                        ${expense.amount.toFixed(2)}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <select
-                          aria-label="Expense category"
-                          value={draft.category}
-                          onChange={(event) =>
-                            handleEditChange(expense._id, 'category', event.target.value)
-                          }
-                          className={inputClassName}
-                        >
-                          {categories.map((category) => (
-                            <option key={category._id} value={category._id}>
-                              {category.name}
-                            </option>
-                          ))}
-                        </select>
+                        {categoryName}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <input
-                          type="text"
-                          aria-label="Expense note"
-                          value={draft.note}
-                          onChange={(event) =>
-                            handleEditChange(expense._id, 'note', event.target.value)
-                          }
-                          className={`${inputClassName} flex-1`}
-                        />
+                        {expense.note || '—'}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        {status.kind === 'success' ? (
-                          <span aria-live="polite" className={statusTextClassName(status)}>
-                            Saved ✓
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleSaveRow(expense._id)}
-                              disabled={saving}
-                              className={primaryButtonClassName}
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(expense._id)}
-                              disabled={saving}
-                              className={secondaryButtonClassName}
-                            >
-                              Delete
-                            </button>
-                            <span aria-live="polite" className={statusTextClassName(status)}>
-                              {status.kind === 'saving' && 'Saving…'}
-                              {status.kind === 'error' && status.message}
-                            </span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            aria-label="Edit expense"
+                            onClick={() => handleOpenEdit(expense)}
+                            className={secondaryButtonClassName}
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Delete expense"
+                            onClick={() => handleOpenDelete(expense._id)}
+                            className={secondaryButtonClassName}
+                          >
+                            <DeleteIcon />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
