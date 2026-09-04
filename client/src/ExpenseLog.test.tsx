@@ -147,10 +147,10 @@ describe('ExpenseLog', () => {
     expect(within(rows[0]).getByText('2026-01-20')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Food')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Groceries')).toBeInTheDocument()
-    expect(within(rows[0]).queryByRole('tooltip')).not.toBeInTheDocument()
+    expect(within(rows[0]).queryByRole('button', { name: 'more' })).not.toBeInTheDocument()
     expect(within(rows[1]).getByText('$1200.00')).toBeInTheDocument()
     expect(within(rows[1]).getByText('—')).toBeInTheDocument()
-    expect(within(rows[1]).queryByRole('tooltip')).not.toBeInTheDocument()
+    expect(within(rows[1]).queryByRole('button', { name: 'more' })).not.toBeInTheDocument()
   })
 
   it('refetches with the new month when the month input changes', async () => {
@@ -955,8 +955,8 @@ describe('ExpenseLog', () => {
     expect(screen.getByLabelText('Amount')).toHaveValue(null)
   })
 
-  it('truncates a long note and reveals the full text via a keyboard-focusable tooltip', async () => {
-    const longNote = 'This is a genuinely long expense note that exceeds forty characters easily'
+  it('truncates a long note behind a toggle that expands and collapses the full text', async () => {
+    const longNote = 'This is a genuinely long expense note that exceeds twenty characters easily'
 
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET'
@@ -988,11 +988,21 @@ describe('ExpenseLog', () => {
     await findInTable('$50.00')
 
     const { display } = truncateNote(longNote)
-    const trigger = within(rowFor('$50.00')).getByText(display)
-    expect(trigger).toHaveAttribute('tabIndex', '0')
+    const row = rowFor('$50.00')
+    expect(row).toHaveTextContent(display)
+    expect(row).not.toHaveTextContent(longNote)
 
-    const tooltipId = trigger.getAttribute('aria-describedby')
-    expect(tooltipId).toBeTruthy()
-    expect(document.getElementById(tooltipId as string)).toHaveTextContent(longNote)
+    const moreButton = within(row).getByRole('button', { name: 'more' })
+    expect(moreButton).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(moreButton)
+
+    expect(row).toHaveTextContent(longNote)
+
+    const lessButton = within(row).getByRole('button', { name: 'less' })
+    expect(lessButton).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(lessButton)
+
+    expect(row).toHaveTextContent(display)
+    expect(row).not.toHaveTextContent(longNote)
   })
 })

@@ -1,4 +1,4 @@
-export const NOTE_TRUNCATION_THRESHOLD = 40
+export const NOTE_TRUNCATION_THRESHOLD = 20
 
 export function truncateNote(
   note: string,

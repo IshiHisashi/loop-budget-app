@@ -1,5 +1,4 @@
-import { SVGProps, useEffect, useId, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { SVGProps, useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import {
   createExpense,
@@ -107,52 +106,45 @@ function DeleteIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+const toggleButtonClassName =
+  'text-sm font-medium text-rose-600 underline hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300'
+
 function NoteCell({ note }: { note: string }) {
-  const tooltipId = useId()
-  const triggerRef = useRef<HTMLSpanElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [isExpanded, setIsExpanded] = useState(false)
 
   if (!note) return <>—</>
 
   const { display, isTruncated } = truncateNote(note)
   if (!isTruncated) return <>{display}</>
 
-  const showTooltip = () => {
-    const rect = triggerRef.current?.getBoundingClientRect()
-    if (rect) setPosition({ top: rect.bottom + 4, left: rect.left })
-    setIsVisible(true)
+  if (isExpanded) {
+    return (
+      <span>
+        {note}{' '}
+        <button
+          type="button"
+          aria-expanded={true}
+          className={toggleButtonClassName}
+          onClick={() => setIsExpanded(false)}
+        >
+          less
+        </button>
+      </span>
+    )
   }
-  const hideTooltip = () => setIsVisible(false)
 
   return (
-    <>
-      <span
-        ref={triggerRef}
-        tabIndex={0}
-        aria-describedby={tooltipId}
-        className="cursor-default underline decoration-dotted underline-offset-2"
-        onMouseEnter={showTooltip}
-        onMouseLeave={hideTooltip}
-        onFocus={showTooltip}
-        onBlur={hideTooltip}
+    <span>
+      {display}{' '}
+      <button
+        type="button"
+        aria-expanded={false}
+        className={toggleButtonClassName}
+        onClick={() => setIsExpanded(true)}
       >
-        {display}
-      </span>
-      {createPortal(
-        <span
-          id={tooltipId}
-          role="tooltip"
-          style={{ top: position.top, left: position.left }}
-          className={`pointer-events-none fixed z-10 w-max max-w-xs rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 shadow transition-opacity dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 ${
-            isVisible ? 'visible opacity-100' : 'invisible opacity-0'
-          }`}
-        >
-          {note}
-        </span>,
-        document.body,
-      )}
-    </>
+        more
+      </button>
+    </span>
   )
 }
 
