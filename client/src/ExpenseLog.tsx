@@ -13,6 +13,7 @@ import ExpenseCalendar from './ExpenseCalendar.tsx'
 import Modal from './Modal.tsx'
 import {
   cardClassName as baseCardClassName,
+  iconButtonClassName,
   inputClassName,
   labelClassName,
   primaryButtonClassName,
@@ -606,12 +607,12 @@ function ExpenseLog() {
                         {expense.note || '—'}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             aria-label="Edit expense"
                             onClick={() => handleOpenEdit(expense)}
-                            className={secondaryButtonClassName}
+                            className={iconButtonClassName}
                           >
                             <EditIcon />
                           </button>
@@ -619,7 +620,7 @@ function ExpenseLog() {
                             type="button"
                             aria-label="Delete expense"
                             onClick={() => handleOpenDelete(expense._id)}
-                            className={secondaryButtonClassName}
+                            className={iconButtonClassName}
                           >
                             <DeleteIcon />
                           </button>
