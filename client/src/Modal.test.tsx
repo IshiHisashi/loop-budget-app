@@ -66,4 +66,45 @@ describe('Modal', () => {
 
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('does not steal focus from a child input when re-rendered with a new onClose reference', () => {
+    const { rerender } = render(
+      <Modal open onClose={() => {}} title="Add expense">
+        <input aria-label="Amount" />
+      </Modal>
+    )
+
+    const input = screen.getByLabelText('Amount')
+    input.focus()
+    expect(document.activeElement).toBe(input)
+
+    rerender(
+      <Modal open onClose={() => {}} title="Add expense">
+        <input aria-label="Amount" />
+      </Modal>
+    )
+
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('calls the latest onClose on Escape after re-rendering with a new reference', () => {
+    const firstOnClose = vi.fn()
+    const secondOnClose = vi.fn()
+    const { rerender } = render(
+      <Modal open onClose={firstOnClose} title="Add expense">
+        <p>Content</p>
+      </Modal>
+    )
+
+    rerender(
+      <Modal open onClose={secondOnClose} title="Add expense">
+        <p>Content</p>
+      </Modal>
+    )
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(secondOnClose).toHaveBeenCalledOnce()
+    expect(firstOnClose).not.toHaveBeenCalled()
+  })
 })
