@@ -1,4 +1,4 @@
-import { SVGProps, useEffect, useRef, useState } from 'react'
+import { Fragment, SVGProps, useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import {
   createExpense,
@@ -10,6 +10,7 @@ import {
 } from './api/expenses.ts'
 import { currentMonth } from './dateUtils.ts'
 import ExpenseCalendar from './ExpenseCalendar.tsx'
+import { groupExpensesByDate } from './groupExpensesByDate.ts'
 import Modal from './Modal.tsx'
 import { truncateNote } from './noteTruncation.ts'
 import {
@@ -600,78 +601,70 @@ function ExpenseLog() {
 
           <div className="overflow-x-auto">
             <table className="mt-4 w-full border-collapse text-left">
-              <thead>
-                <tr className="bg-neutral-100 dark:bg-neutral-800">
-                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
-                    Date
-                  </th>
-                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
-                    Amount
-                  </th>
-                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
-                    Category
-                  </th>
-                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
-                    Note
-                  </th>
-                  <th className="border-b border-neutral-300 px-3 py-2 font-medium dark:border-neutral-600">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
               <tbody data-testid="expense-rows">
-                {expenses.map((expense) => {
-                  const isHighlighted = highlightedDay === expense.date.slice(0, 10)
-                  const categoryName =
-                    categories.find((category) => category._id === expense.category)?.name ??
-                    expense.category
-
-                  return (
-                    <tr
-                      key={expense._id}
-                      ref={(el) => {
-                        if (el) rowRefs.current.set(expense._id, el)
-                        else rowRefs.current.delete(expense._id)
-                      }}
-                      className={`transition-colors duration-700 ${
-                        isHighlighted ? 'bg-rose-100 dark:bg-rose-900/40' : ''
-                      }`}
-                    >
-                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        {expense.date.slice(0, 10)}
-                      </td>
-                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        ${expense.amount.toFixed(2)}
-                      </td>
-                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        {categoryName}
-                      </td>
-                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <NoteCell note={expense.note ?? ''} />
-                      </td>
-                      <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            aria-label="Edit expense"
-                            onClick={() => handleOpenEdit(expense)}
-                            className={iconButtonClassName}
-                          >
-                            <EditIcon />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Delete expense"
-                            onClick={() => handleOpenDelete(expense._id)}
-                            className={iconButtonClassName}
-                          >
-                            <DeleteIcon />
-                          </button>
-                        </div>
-                      </td>
+                {groupExpensesByDate(expenses).map((group) => (
+                  <Fragment key={group.date}>
+                    <tr className="bg-neutral-100 dark:bg-neutral-800">
+                      <th
+                        scope="rowgroup"
+                        colSpan={4}
+                        className="border-b border-neutral-300 px-3 py-2 text-left font-medium dark:border-neutral-600"
+                      >
+                        {group.date}
+                      </th>
                     </tr>
-                  )
-                })}
+                    {group.expenses.map((expense) => {
+                      const isHighlighted = highlightedDay === expense.date.slice(0, 10)
+                      const categoryName =
+                        categories.find((category) => category._id === expense.category)
+                          ?.name ?? expense.category
+
+                      return (
+                        <tr
+                          key={expense._id}
+                          data-testid="expense-row"
+                          ref={(el) => {
+                            if (el) rowRefs.current.set(expense._id, el)
+                            else rowRefs.current.delete(expense._id)
+                          }}
+                          className={`transition-colors duration-700 ${
+                            isHighlighted ? 'bg-rose-100 dark:bg-rose-900/40' : ''
+                          }`}
+                        >
+                          <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                            ${expense.amount.toFixed(2)}
+                          </td>
+                          <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                            {categoryName}
+                          </td>
+                          <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                            <NoteCell note={expense.note ?? ''} />
+                          </td>
+                          <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                aria-label="Edit expense"
+                                onClick={() => handleOpenEdit(expense)}
+                                className={iconButtonClassName}
+                              >
+                                <EditIcon />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Delete expense"
+                                onClick={() => handleOpenDelete(expense._id)}
+                                className={iconButtonClassName}
+                              >
+                                <DeleteIcon />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
           </div>
