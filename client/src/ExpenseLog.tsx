@@ -1,4 +1,4 @@
-import { SVGProps, useEffect, useRef, useState } from 'react'
+import { SVGProps, useEffect, useId, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
 import {
   createExpense,
@@ -11,6 +11,7 @@ import {
 import { currentMonth } from './dateUtils.ts'
 import ExpenseCalendar from './ExpenseCalendar.tsx'
 import Modal from './Modal.tsx'
+import { truncateNote } from './noteTruncation.ts'
 import {
   cardClassName as baseCardClassName,
   iconButtonClassName,
@@ -102,6 +103,33 @@ function DeleteIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6" />
     </svg>
+  )
+}
+
+function NoteCell({ note }: { note: string }) {
+  const tooltipId = useId()
+  if (!note) return <>—</>
+
+  const { display, isTruncated } = truncateNote(note)
+  if (!isTruncated) return <>{display}</>
+
+  return (
+    <span className="group relative inline-block">
+      <span
+        tabIndex={0}
+        aria-describedby={tooltipId}
+        className="cursor-default underline decoration-dotted underline-offset-2"
+      >
+        {display}
+      </span>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className="pointer-events-none invisible absolute left-0 top-full z-10 mt-1 w-max max-w-xs rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 opacity-0 shadow transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+      >
+        {note}
+      </span>
+    </span>
   )
 }
 
@@ -604,7 +632,7 @@ function ExpenseLog() {
                         {categoryName}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        {expense.note || '—'}
+                        <NoteCell note={expense.note ?? ''} />
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
                         <div className="flex items-center justify-end gap-2">

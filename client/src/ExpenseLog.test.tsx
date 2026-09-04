@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ExpenseLog from './ExpenseLog.tsx'
+import { truncateNote } from './noteTruncation.ts'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -146,8 +147,10 @@ describe('ExpenseLog', () => {
     expect(within(rows[0]).getByText('2026-01-20')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Food')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Groceries')).toBeInTheDocument()
+    expect(within(rows[0]).queryByRole('tooltip')).not.toBeInTheDocument()
     expect(within(rows[1]).getByText('$1200.00')).toBeInTheDocument()
     expect(within(rows[1]).getByText('—')).toBeInTheDocument()
+    expect(within(rows[1]).queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('refetches with the new month when the month input changes', async () => {
@@ -950,5 +953,46 @@ describe('ExpenseLog', () => {
     openAddModal()
 
     expect(screen.getByLabelText('Amount')).toHaveValue(null)
+  })
+
+  it('truncates a long note and reveals the full text via a keyboard-focusable tooltip', async () => {
+    const longNote = 'This is a genuinely long expense note that exceeds forty characters easily'
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse([
+          {
+            _id: 'exp-long-note',
+            date: '2026-01-20T00:00:00.000Z',
+            amount: 50,
+            category: 'cat1',
+            note: longNote,
+            createdAt: '',
+            updatedAt: '',
+          },
+        ])
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    await findInTable('$50.00')
+
+    const { display } = truncateNote(longNote)
+    const trigger = within(rowFor('$50.00')).getByText(display)
+    expect(trigger).toHaveAttribute('tabIndex', '0')
+
+    const tooltipId = trigger.getAttribute('aria-describedby')
+    expect(tooltipId).toBeTruthy()
+    expect(document.getElementById(tooltipId as string)).toHaveTextContent(longNote)
   })
 })
