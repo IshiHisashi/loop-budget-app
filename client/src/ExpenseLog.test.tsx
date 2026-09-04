@@ -137,20 +137,28 @@ afterEach(() => {
 })
 
 describe('ExpenseLog', () => {
-  it('renders expenses most-recent-first with read-only values', async () => {
+  it('renders expenses most-recent-first, grouped under a date header row per day', async () => {
     render(<ExpenseLog />)
     await findInTable('$50.00')
 
-    const rows = within(screen.getByTestId('expense-rows')).getAllByRole('row')
-    expect(rows).toHaveLength(2)
-    expect(within(rows[0]).getByText('$50.00')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('2026-01-20')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Food')).toBeInTheDocument()
-    expect(within(rows[0]).getByText('Groceries')).toBeInTheDocument()
-    expect(within(rows[0]).queryByRole('button', { name: 'more' })).not.toBeInTheDocument()
-    expect(within(rows[1]).getByText('$1200.00')).toBeInTheDocument()
-    expect(within(rows[1]).getByText('—')).toBeInTheDocument()
-    expect(within(rows[1]).queryByRole('button', { name: 'more' })).not.toBeInTheDocument()
+    const allRows = within(screen.getByTestId('expense-rows')).getAllByRole('row')
+    expect(allRows).toHaveLength(4)
+
+    expect(within(allRows[0]).getByText('2026-01-20')).toBeInTheDocument()
+    expect(within(allRows[1]).getByText('$50.00')).toBeInTheDocument()
+    expect(within(allRows[1]).getByText('Food')).toBeInTheDocument()
+    expect(within(allRows[1]).getByText('Groceries')).toBeInTheDocument()
+    expect(within(allRows[1]).queryByText('2026-01-20')).not.toBeInTheDocument()
+    expect(within(allRows[1]).queryByRole('button', { name: 'more' })).not.toBeInTheDocument()
+
+    expect(within(allRows[2]).getByText('2026-01-10')).toBeInTheDocument()
+    expect(within(allRows[3]).getByText('$1200.00')).toBeInTheDocument()
+    expect(within(allRows[3]).getByText('—')).toBeInTheDocument()
+    expect(within(allRows[3]).queryByText('2026-01-10')).not.toBeInTheDocument()
+    expect(within(allRows[3]).queryByRole('button', { name: 'more' })).not.toBeInTheDocument()
+
+    const dataRows = within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')
+    expect(dataRows).toHaveLength(2)
   })
 
   it('refetches with the new month when the month input changes', async () => {
@@ -207,7 +215,7 @@ describe('ExpenseLog', () => {
 
     await screen.findByText('Added ✓')
     expect(tableScope().queryByText('$75.00')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(2)
   })
 
   it('rejects invalid add input client-side without calling the API', async () => {
@@ -266,7 +274,7 @@ describe('ExpenseLog', () => {
     await waitFor(() => {
       expect(tableScope().queryByText('$50.00')).not.toBeInTheDocument()
     })
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(1)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(1)
   })
 
   it('closes the edit modal immediately on successful save, with no lingering success message', async () => {
@@ -687,7 +695,7 @@ describe('ExpenseLog', () => {
       expect(tableScope().getByText('$99.00')).toBeInTheDocument()
     })
     expect(tableScope().queryByText('$75.00')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(1)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(1)
   })
 
   it('ignores Cancel, Escape, and backdrop-click while an add is in flight, so the stale response cannot clobber a later draft', async () => {
@@ -820,7 +828,7 @@ describe('ExpenseLog', () => {
       expect(tableScope().getByText('$99.00')).toBeInTheDocument()
     })
     expect(tableScope().queryByText('$65.00')).not.toBeInTheDocument()
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(1)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(1)
   })
 
   it('renders the calendar above the expense table', async () => {
@@ -835,18 +843,68 @@ describe('ExpenseLog', () => {
     ).toBeTruthy()
   })
 
-  it('renders the expected column headers, in order', async () => {
+  it('renders no column-header row', async () => {
     render(<ExpenseLog />)
     await findInTable('$50.00')
 
-    const headers = within(screen.getByRole('table')).getAllByRole('columnheader')
-    expect(headers.map((header) => header.textContent)).toEqual([
-      'Date',
-      'Amount',
-      'Category',
-      'Note',
-      'Actions',
-    ])
+    expect(within(screen.getByRole('table')).queryAllByRole('columnheader')).toHaveLength(0)
+  })
+
+  it('groups multiple same-day expenses under one shared date header row, in date order', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.includes('/api/expenses?month=') && method === 'GET') {
+        return jsonResponse([
+          {
+            _id: 'exp-a',
+            date: '2026-01-20T00:00:00.000Z',
+            amount: 20,
+            category: 'cat1',
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'exp-b',
+            date: '2026-01-20T00:00:00.000Z',
+            amount: 5,
+            category: 'cat1',
+            createdAt: '',
+            updatedAt: '',
+          },
+          {
+            _id: 'exp-c',
+            date: '2026-01-16T00:00:00.000Z',
+            amount: 15,
+            category: 'cat1',
+            createdAt: '',
+            updatedAt: '',
+          },
+        ])
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<ExpenseLog />)
+    await findInTable('$5.00')
+
+    const dateHeaders = within(screen.getByTestId('expense-rows')).getAllByRole('rowheader')
+    expect(dateHeaders.map((header) => header.textContent)).toEqual(['2026-01-20', '2026-01-16'])
+
+    const allRows = within(screen.getByTestId('expense-rows')).getAllByRole('row')
+    expect(allRows).toHaveLength(5)
+    expect(within(allRows[0]).getByText('2026-01-20')).toBeInTheDocument()
+    expect(within(allRows[1]).getByText('$20.00')).toBeInTheDocument()
+    expect(within(allRows[2]).getByText('$5.00')).toBeInTheDocument()
+    expect(within(allRows[3]).getByText('2026-01-16')).toBeInTheDocument()
+    expect(within(allRows[4]).getByText('$15.00')).toBeInTheDocument()
   })
 
   it("scrolls to and highlights that day's row when a calendar day is clicked, without hiding other rows", async () => {
@@ -858,7 +916,7 @@ describe('ExpenseLog', () => {
     selectJanuary()
     await findInTable('$50.00')
 
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(2)
 
     const foodRow = rowFor('$50.00')
     const rentRow = rowFor('$1200.00')
@@ -866,7 +924,7 @@ describe('ExpenseLog', () => {
     fireEvent.click(screen.getByRole('button', { name: /^20\$50\.00$/ }))
 
     // Nothing is hidden — both rows are still present.
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(2)
     expect(tableScope().getByText('$1200.00')).toBeInTheDocument()
 
     // Scrolled to the matching row, and highlighted just that one.
@@ -887,11 +945,11 @@ describe('ExpenseLog', () => {
 
     const dayButton = screen.getByRole('button', { name: /^20\$50\.00$/ })
     fireEvent.click(dayButton)
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(2)
     expect(scrollIntoView).toHaveBeenCalledTimes(1)
 
     fireEvent.click(dayButton)
-    expect(within(screen.getByTestId('expense-rows')).getAllByRole('row')).toHaveLength(2)
+    expect(within(screen.getByTestId('expense-rows')).getAllByTestId('expense-row')).toHaveLength(2)
     expect(scrollIntoView).toHaveBeenCalledTimes(2)
   })
 
