@@ -201,6 +201,26 @@ describe('ExpenseLog', () => {
     await findInTable('$75.00')
   })
 
+  it('keeps focus on the Amount field while typing multiple digits in a row', async () => {
+    render(<ExpenseLog />)
+    await findInTable('$50.00')
+    openAddModal()
+
+    const amountInput = screen.getByLabelText('Amount')
+    amountInput.focus()
+    expect(document.activeElement).toBe(amountInput)
+
+    fireEvent.change(amountInput, { target: { value: '5' } })
+    expect(document.activeElement).toBe(amountInput)
+
+    fireEvent.change(amountInput, { target: { value: '50' } })
+    expect(document.activeElement).toBe(amountInput)
+
+    fireEvent.change(amountInput, { target: { value: '500' } })
+    expect(document.activeElement).toBe(amountInput)
+    expect(amountInput).toHaveValue(500)
+  })
+
   it('does not show a newly added expense whose date falls outside the selected month', async () => {
     render(<ExpenseLog />)
     await findInTable('$50.00')
