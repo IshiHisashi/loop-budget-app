@@ -11,6 +11,7 @@ import {
 import { currentMonth } from './dateUtils.ts'
 import ExpenseCalendar from './ExpenseCalendar.tsx'
 import Modal from './Modal.tsx'
+import { truncateNote } from './noteTruncation.ts'
 import {
   cardClassName as baseCardClassName,
   iconButtonClassName,
@@ -102,6 +103,48 @@ function DeleteIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6M14 11v6" />
     </svg>
+  )
+}
+
+const toggleButtonClassName =
+  'text-sm font-medium text-rose-600 underline hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300'
+
+function NoteCell({ note }: { note: string }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  if (!note) return <>—</>
+
+  const { display, isTruncated } = truncateNote(note)
+  if (!isTruncated) return <>{display}</>
+
+  if (isExpanded) {
+    return (
+      <span>
+        {note}{' '}
+        <button
+          type="button"
+          aria-expanded={true}
+          className={toggleButtonClassName}
+          onClick={() => setIsExpanded(false)}
+        >
+          less
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <span>
+      {display}{' '}
+      <button
+        type="button"
+        aria-expanded={false}
+        className={toggleButtonClassName}
+        onClick={() => setIsExpanded(true)}
+      >
+        more
+      </button>
+    </span>
   )
 }
 
@@ -604,7 +647,7 @@ function ExpenseLog() {
                         {categoryName}
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                        {expense.note || '—'}
+                        <NoteCell note={expense.note ?? ''} />
                       </td>
                       <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
                         <div className="flex items-center justify-end gap-2">
