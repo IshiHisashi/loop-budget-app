@@ -41,10 +41,6 @@ function mockFetch(options: { failPut?: boolean } = {}) {
       })
     }
 
-    if (url.endsWith('/api/budgets/cat1') && method === 'DELETE') {
-      return jsonResponse({ deleted: true })
-    }
-
     throw new Error(`Unhandled request: ${method} ${url}`)
   })
 }
@@ -73,18 +69,6 @@ describe('BudgetSetup', () => {
     expect(within(rowFor('Food')).getByText('$300.00')).toBeInTheDocument()
     expect(within(rowFor('Rent')).getByText('Not budgeted')).toBeInTheDocument()
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
-  })
-
-  it('Clear budget is disabled for a category with no existing budget entry', async () => {
-    render(<BudgetSetup />)
-    await screen.findByText('Rent')
-
-    openEditModal('Rent')
-    expect(screen.getByRole('button', { name: 'Clear budget' })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    openEditModal('Food')
-    expect(screen.getByRole('button', { name: 'Clear budget' })).not.toBeDisabled()
   })
 
   it('saves an edited amount via PUT and closes the modal immediately, with no lingering success message', async () => {
@@ -138,26 +122,6 @@ describe('BudgetSetup', () => {
     await screen.findByText('server exploded')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(within(rowFor('Food')).getByText('$300.00')).toBeInTheDocument()
-  })
-
-  it('clears an existing budget via DELETE and closes the modal immediately', async () => {
-    render(<BudgetSetup />)
-    await screen.findByText('Food')
-
-    openEditModal('Food')
-    fireEvent.click(screen.getByRole('button', { name: 'Clear budget' }))
-
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/budgets/cat1'),
-        expect.objectContaining({ method: 'DELETE' })
-      )
-    })
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    })
-    expect(within(rowFor('Food')).getByText('Not budgeted')).toBeInTheDocument()
   })
 
   it('discards the typed draft when the edit modal is cancelled without saving', async () => {

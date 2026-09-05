@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Category, getCategories } from './api/categories.ts'
-import { Budget, deleteBudget, getBudgets, setBudget } from './api/budgets.ts'
+import { Budget, getBudgets, setBudget } from './api/budgets.ts'
 import { EditIcon } from './icons.tsx'
 import Modal from './Modal.tsx'
 import {
@@ -89,27 +89,6 @@ function BudgetSetup() {
     }
   }
 
-  async function handleClearBudget() {
-    if (!editingCategoryId) return
-    const targetId = editingCategoryId
-
-    setEditStatus({ kind: 'saving' })
-
-    try {
-      await deleteBudget(targetId)
-      setBudgets((prev) => prev.filter((budget) => budget.category !== targetId))
-      if (editingCategoryIdRef.current === targetId) {
-        setEditingCategoryId(null)
-        setEditAmountDraft('')
-        setEditStatus({ kind: 'idle' })
-      }
-    } catch (err) {
-      if (editingCategoryIdRef.current === targetId) {
-        setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
-      }
-    }
-  }
-
   const cardClassName = `${baseCardClassName} mb-6`
 
   if (loading) {
@@ -130,7 +109,6 @@ function BudgetSetup() {
   }
 
   const editingCategory = categories.find((category) => category._id === editingCategoryId) ?? null
-  const hasExistingBudget = budgets.some((budget) => budget.category === editingCategoryId)
 
   return (
     <section className={cardClassName}>
@@ -167,14 +145,6 @@ function BudgetSetup() {
               className={primaryButtonClassName}
             >
               Save
-            </button>
-            <button
-              type="button"
-              onClick={handleClearBudget}
-              disabled={editStatus.kind === 'saving' || !hasExistingBudget}
-              className={secondaryButtonClassName}
-            >
-              Clear budget
             </button>
             <button
               type="button"
