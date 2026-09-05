@@ -136,6 +136,7 @@ describe('PATCH /api/categories/:id', () => {
 
 describe('DELETE /api/categories/:id', () => {
   it('deletes a custom category', async () => {
+    await seedDefaultCategoriesForUser(userId)
     const created = await Category.create({ userId, name: 'Gifts', isDefault: false })
 
     const res = await agent.delete(`/api/categories/${created._id}`)
@@ -188,13 +189,79 @@ describe('DELETE /api/categories/:id', () => {
     expect(stillThere).not.toBeNull()
   })
 
-  it('rejects deleting a category that has an expense entry', async () => {
+  it('reassigns its expenses to Others and deletes the category', async () => {
+    await seedDefaultCategoriesForUser(userId)
+    const others = await Category.findOne({ userId, name: 'Others' })
+    const created = await Category.create({ userId, name: 'Gifts', isDefault: false })
+    const expense = await Expense.create({
+      userId,
+      date: '2026-01-15',
+      amount: 10,
+      category: created._id,
+    })
+
+    const res = await agent.delete(`/api/categories/${created._id}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ deleted: true })
+    const deletedCategory = await Category.findById(created._id)
+    expect(deletedCategory).toBeNull()
+    const updatedExpense = await Expense.findById(expense._id)
+    expect(updatedExpense!.category.toString()).toBe(others!._id.toString())
+  })
+
+  it('reassigns multiple expenses to Others', async () => {
+    await seedDefaultCategoriesForUser(userId)
+    const others = await Category.findOne({ userId, name: 'Others' })
+    const created = await Category.create({ userId, name: 'Gifts', isDefault: false })
+    const expenseA = await Expense.create({
+      userId,
+      date: '2026-01-10',
+      amount: 10,
+      category: created._id,
+    })
+    const expenseB = await Expense.create({
+      userId,
+      date: '2026-01-20',
+      amount: 25,
+      category: created._id,
+    })
+
+    const res = await agent.delete(`/api/categories/${created._id}`)
+
+    expect(res.status).toBe(200)
+    const updatedA = await Expense.findById(expenseA._id)
+    const updatedB = await Expense.findById(expenseB._id)
+    expect(updatedA!.category.toString()).toBe(others!._id.toString())
+    expect(updatedB!.category.toString()).toBe(others!._id.toString())
+  })
+
+  it('does not reassign expenses in a different category', async () => {
+    await seedDefaultCategoriesForUser(userId)
+    const created = await Category.create({ userId, name: 'Gifts', isDefault: false })
+    const untouchedCategory = await Category.create({ userId, name: 'Hobbies', isDefault: false })
+    const untouchedExpense = await Expense.create({
+      userId,
+      date: '2026-01-12',
+      amount: 5,
+      category: untouchedCategory._id,
+    })
+    await Expense.create({ userId, date: '2026-01-15', amount: 10, category: created._id })
+
+    const res = await agent.delete(`/api/categories/${created._id}`)
+
+    expect(res.status).toBe(200)
+    const untouchedAfter = await Expense.findById(untouchedExpense._id)
+    expect(untouchedAfter!.category.toString()).toBe(untouchedCategory._id.toString())
+  })
+
+  it('returns 500 and deletes nothing if the account has no "Others" category', async () => {
     const created = await Category.create({ userId, name: 'Gifts', isDefault: false })
     await Expense.create({ userId, date: '2026-01-15', amount: 10, category: created._id })
 
     const res = await agent.delete(`/api/categories/${created._id}`)
 
-    expect(res.status).toBe(409)
+    expect(res.status).toBe(500)
     const stillThere = await Category.findById(created._id)
     expect(stillThere).not.toBeNull()
   })
