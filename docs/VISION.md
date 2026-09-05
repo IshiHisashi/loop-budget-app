@@ -29,9 +29,10 @@ private to them; the app has no shared or cross-user views.
   reflects current scope.
 - **Monthly budgets**: set a budget amount split across categories, per
   month.
-- **Categories**: predefined categories available out of the box (e.g.
-  Food, Rent, Transport, Entertainment, Utilities), plus the ability to
-  add fully custom categories.
+- **Categories**: predefined categories available out of the box (Food,
+  Rent, Transport, Entertainment, Utilities), plus an always-present
+  "Others" catch-all category, plus the ability to add fully custom
+  categories.
 - **Manual expense logging**: log individual spending entries — date,
   amount, category, optional note. Browse logged entries scoped to a
   given month, including a calendar view of that month's entries.

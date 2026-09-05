@@ -7,6 +7,7 @@ export const DEFAULT_CATEGORY_NAMES: string[] = [
   'Transport',
   'Entertainment',
   'Utilities',
+  'Others',
 ]
 
 export async function seedDefaultCategoriesForUser(
