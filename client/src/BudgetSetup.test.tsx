@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BudgetSetup from './BudgetSetup.tsx'
 
@@ -41,16 +41,16 @@ function mockFetch(options: { failPut?: boolean } = {}) {
       })
     }
 
-    if (url.endsWith('/api/budgets/cat1') && method === 'DELETE') {
-      return jsonResponse({ deleted: true })
-    }
-
     throw new Error(`Unhandled request: ${method} ${url}`)
   })
 }
 
-function rowFor(labelText: string) {
-  return screen.getByLabelText(labelText).closest('li') as HTMLElement
+function rowFor(categoryName: string): HTMLElement {
+  return screen.getByText(categoryName).closest('li') as HTMLElement
+}
+
+function openEditModal(categoryName: string) {
+  fireEvent.click(within(rowFor(categoryName)).getByRole('button', { name: 'Edit budget' }))
 }
 
 beforeEach(() => {
@@ -62,33 +62,22 @@ afterEach(() => {
 })
 
 describe('BudgetSetup', () => {
-  it('renders every category with its current budget amount, blank if unset', async () => {
+  it('renders every category read-only, with its current budget amount or "Not budgeted"', async () => {
     render(<BudgetSetup />)
 
-    const foodInput = await screen.findByLabelText('Food budget amount')
-    const rentInput = await screen.findByLabelText('Rent budget amount')
-
-    expect(foodInput).toHaveValue(300)
-    expect(rentInput).toHaveValue(null)
+    await screen.findByText('Food')
+    expect(within(rowFor('Food')).getByText('$300.00')).toBeInTheDocument()
+    expect(within(rowFor('Rent')).getByText('Not budgeted')).toBeInTheDocument()
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
   })
 
-  it('Clear is disabled for a category with no existing budget entry', async () => {
+  it('saves an edited amount via PUT and closes the modal immediately, with no lingering success message', async () => {
     render(<BudgetSetup />)
-    await screen.findByLabelText('Rent budget amount')
+    await screen.findByText('Rent')
 
-    const rentClear = within(rowFor('Rent budget amount')).getByRole('button', { name: 'Clear' })
-    expect(rentClear).toBeDisabled()
-
-    const foodClear = within(rowFor('Food budget amount')).getByRole('button', { name: 'Clear' })
-    expect(foodClear).not.toBeDisabled()
-  })
-
-  it('saves an edited amount via PUT when Save is clicked', async () => {
-    render(<BudgetSetup />)
-
-    const rentInput = await screen.findByLabelText('Rent budget amount')
-    fireEvent.change(rentInput, { target: { value: '1200' } })
-    fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
+    openEditModal('Rent')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '1200' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
@@ -100,74 +89,104 @@ describe('BudgetSetup', () => {
       )
     })
 
-    await within(rowFor('Rent budget amount')).findByText('Saved ✓')
-  })
-
-  it('replaces Save/Clear with the success message, then restores them after 3 seconds', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
-      render(<BudgetSetup />)
-
-      const rentInput = await screen.findByLabelText('Rent budget amount')
-      fireEvent.change(rentInput, { target: { value: '1200' } })
-      fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
-
-      await within(rowFor('Rent budget amount')).findByText('Saved ✓')
-      expect(
-        within(rowFor('Rent budget amount')).queryByRole('button', { name: 'Save' })
-      ).not.toBeInTheDocument()
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(3000)
-      })
-
-      expect(
-        within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' })
-      ).toBeInTheDocument()
-      expect(within(rowFor('Rent budget amount')).queryByText('Saved ✓')).not.toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Saved ✓')).not.toBeInTheDocument()
+    expect(within(rowFor('Rent')).getByText('$1200.00')).toBeInTheDocument()
   })
 
   it('rejects an invalid amount client-side without calling the API', async () => {
     render(<BudgetSetup />)
+    await screen.findByText('Rent')
 
-    const rentInput = await screen.findByLabelText('Rent budget amount')
-    fireEvent.change(rentInput, { target: { value: '-5' } })
+    openEditModal('Rent')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '-5' } })
     const putCallsBefore = vi.mocked(fetch).mock.calls.length
-    fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await within(rowFor('Rent budget amount')).findByText('Enter a non-negative number')
+    await screen.findByText('Enter a non-negative number')
     expect(vi.mocked(fetch).mock.calls.length).toBe(putCallsBefore)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  it('shows a per-row error on save failure without affecting other rows', async () => {
+  it('shows an inline error in the modal on save failure, without affecting other rows', async () => {
     vi.stubGlobal('fetch', mockFetch({ failPut: true }))
     render(<BudgetSetup />)
+    await screen.findByText('Rent')
 
-    const rentInput = await screen.findByLabelText('Rent budget amount')
-    fireEvent.change(rentInput, { target: { value: '1200' } })
-    fireEvent.click(within(rowFor('Rent budget amount')).getByRole('button', { name: 'Save' }))
+    openEditModal('Rent')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '1200' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    await within(rowFor('Rent budget amount')).findByText('server exploded')
-    expect(screen.getByLabelText('Food budget amount')).toHaveValue(300)
+    await screen.findByText('server exploded')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(within(rowFor('Food')).getByText('$300.00')).toBeInTheDocument()
   })
 
-  it('clears an existing budget via DELETE when Clear is clicked', async () => {
+  it('discards the typed draft when the edit modal is cancelled without saving', async () => {
     render(<BudgetSetup />)
-    await screen.findByLabelText('Food budget amount')
+    await screen.findByText('Rent')
 
-    fireEvent.click(within(rowFor('Food budget amount')).getByRole('button', { name: 'Clear' }))
+    openEditModal('Rent')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '999' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/budgets/cat1'),
-        expect.objectContaining({ method: 'DELETE' })
-      )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(within(rowFor('Rent')).getByText('Not budgeted')).toBeInTheDocument()
+
+    openEditModal('Rent')
+    expect(screen.getByLabelText('Amount')).toHaveValue(null)
+  })
+
+  it('ignores Cancel, Escape, and backdrop-click on the edit modal while a save is in flight', async () => {
+    let resolvePut: (value: Response) => void
+    const putPromise = new Promise<Response>((resolve) => {
+      resolvePut = resolve
     })
 
-    await within(rowFor('Food budget amount')).findByText('Saved ✓')
-    expect(screen.getByLabelText('Food budget amount')).toHaveValue(null)
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/api/categories') && method === 'GET') {
+        return jsonResponse([
+          { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
+        ])
+      }
+      if (url.endsWith('/api/budgets') && method === 'GET') {
+        return jsonResponse([])
+      }
+      if (url.endsWith('/api/budgets/cat1') && method === 'PUT') {
+        return putPromise
+      }
+
+      throw new Error(`Unhandled request: ${method} ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<BudgetSetup />)
+    await screen.findByText('Food')
+
+    openEditModal('Food')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '500' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await screen.findByText('Saving…')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('dialog').parentElement as Element)
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount')).toHaveValue(500)
+
+    resolvePut!(
+      jsonResponse({ _id: 'b1', category: 'cat1', amount: 500, createdAt: '', updatedAt: '' })
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(within(rowFor('Food')).getByText('$500.00')).toBeInTheDocument()
   })
 })
