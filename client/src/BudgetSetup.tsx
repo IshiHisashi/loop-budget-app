@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Category, getCategories } from './api/categories.ts'
+import { Category, createCategory, deleteCategory, getCategories } from './api/categories.ts'
 import { Budget, getBudgets, setBudget } from './api/budgets.ts'
-import { EditIcon } from './icons.tsx'
+import { DeleteIcon, EditIcon } from './icons.tsx'
 import Modal from './Modal.tsx'
 import {
   cardClassName as baseCardClassName,
@@ -15,9 +15,11 @@ import {
 type RowStatus =
   | { kind: 'idle' }
   | { kind: 'saving' }
+  | { kind: 'success' }
   | { kind: 'error'; message: string }
 
 function statusTextClassName(status: RowStatus): string {
+  if (status.kind === 'success') return 'text-sm text-green-600 dark:text-green-400'
   if (status.kind === 'error') return 'text-sm text-red-600 dark:text-red-400'
   return 'text-sm text-neutral-600 dark:text-neutral-400'
 }
@@ -33,9 +35,28 @@ function BudgetSetup() {
   const [editStatus, setEditStatus] = useState<RowStatus>({ kind: 'idle' })
   const editingCategoryIdRef = useRef(editingCategoryId)
 
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [addStatus, setAddStatus] = useState<RowStatus>({ kind: 'idle' })
+  const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
+  const [deleteStatus, setDeleteStatus] = useState<RowStatus>({ kind: 'idle' })
+  const deletingCategoryIdRef = useRef(deletingCategoryId)
+
   useEffect(() => {
     editingCategoryIdRef.current = editingCategoryId
   }, [editingCategoryId])
+
+  useEffect(() => {
+    deletingCategoryIdRef.current = deletingCategoryId
+  }, [deletingCategoryId])
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(addSuccessTimer.current)
+    }
+  }, [])
 
   useEffect(() => {
     Promise.all([getCategories(), getBudgets()])
@@ -89,6 +110,79 @@ function BudgetSetup() {
     }
   }
 
+  function scheduleAddSuccessReset() {
+    clearTimeout(addSuccessTimer.current)
+    addSuccessTimer.current = setTimeout(() => {
+      setAddStatus({ kind: 'idle' })
+      setIsAddModalOpen(false)
+    }, 3000)
+  }
+
+  function handleOpenAdd() {
+    clearTimeout(addSuccessTimer.current)
+    setNewCategoryName('')
+    setAddStatus({ kind: 'idle' })
+    setIsAddModalOpen(true)
+  }
+
+  function handleCancelAdd() {
+    if (addStatus.kind === 'saving') return
+    clearTimeout(addSuccessTimer.current)
+    setNewCategoryName('')
+    setAddStatus({ kind: 'idle' })
+    setIsAddModalOpen(false)
+  }
+
+  async function handleAdd() {
+    clearTimeout(addSuccessTimer.current)
+    const name = newCategoryName.trim()
+    if (!name) {
+      setAddStatus({ kind: 'error', message: 'Enter a category name' })
+      return
+    }
+
+    setAddStatus({ kind: 'saving' })
+    try {
+      const created = await createCategory(name)
+      setCategories((prev) => [...prev, created])
+      setNewCategoryName('')
+      setAddStatus({ kind: 'success' })
+      scheduleAddSuccessReset()
+    } catch (err) {
+      setAddStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  function handleOpenDelete(categoryId: string) {
+    setDeletingCategoryId(categoryId)
+    setDeleteStatus({ kind: 'idle' })
+  }
+
+  function handleCancelDelete() {
+    if (deleteStatus.kind === 'saving') return
+    setDeletingCategoryId(null)
+    setDeleteStatus({ kind: 'idle' })
+  }
+
+  async function handleConfirmDelete() {
+    if (!deletingCategoryId) return
+    const targetId = deletingCategoryId
+    setDeleteStatus({ kind: 'saving' })
+    try {
+      await deleteCategory(targetId)
+      setCategories((prev) => prev.filter((category) => category._id !== targetId))
+      setBudgets((prev) => prev.filter((budget) => budget.category !== targetId))
+      if (deletingCategoryIdRef.current === targetId) {
+        setDeletingCategoryId(null)
+        setDeleteStatus({ kind: 'idle' })
+      }
+    } catch (err) {
+      if (deletingCategoryIdRef.current === targetId) {
+        setDeleteStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
+    }
+  }
+
   const cardClassName = `${baseCardClassName} mb-6`
 
   if (loading) {
@@ -109,12 +203,18 @@ function BudgetSetup() {
   }
 
   const editingCategory = categories.find((category) => category._id === editingCategoryId) ?? null
+  const deletingCategory = categories.find((category) => category._id === deletingCategoryId) ?? null
 
   return (
     <section className={cardClassName}>
-      <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-        Monthly budgets
-      </h2>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+          Monthly budgets
+        </h2>
+        <button type="button" onClick={handleOpenAdd} className={primaryButtonClassName}>
+          + Add category
+        </button>
+      </div>
 
       <Modal
         open={editingCategoryId !== null}
@@ -162,6 +262,85 @@ function BudgetSetup() {
         </form>
       </Modal>
 
+      <Modal open={isAddModalOpen} onClose={handleCancelAdd} title="Add category">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            handleAdd()
+          }}
+          className="flex flex-col gap-3"
+        >
+          <label className={labelClassName}>
+            Name
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(event) => setNewCategoryName(event.target.value)}
+              className={inputClassName}
+            />
+          </label>
+          {addStatus.kind === 'success' ? (
+            <span aria-live="polite" className={statusTextClassName(addStatus)}>
+              Added ✓
+            </span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={addStatus.kind === 'saving'}
+                className={primaryButtonClassName}
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelAdd}
+                disabled={addStatus.kind === 'saving'}
+                className={secondaryButtonClassName}
+              >
+                Cancel
+              </button>
+              <span aria-live="polite" className={statusTextClassName(addStatus)}>
+                {addStatus.kind === 'saving' && 'Saving…'}
+                {addStatus.kind === 'error' && addStatus.message}
+              </span>
+            </div>
+          )}
+        </form>
+      </Modal>
+
+      <Modal open={deletingCategoryId !== null} onClose={handleCancelDelete} title="Delete category">
+        <div className="flex flex-col gap-3">
+          {deletingCategory && (
+            <p className="text-neutral-700 dark:text-neutral-300">
+              Delete &ldquo;{deletingCategory.name}&rdquo;?
+            </p>
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={deleteStatus.kind === 'saving'}
+              className={primaryButtonClassName}
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelDelete}
+              disabled={deleteStatus.kind === 'saving'}
+              className={secondaryButtonClassName}
+            >
+              Cancel
+            </button>
+            <span aria-live="polite" className={statusTextClassName(deleteStatus)}>
+              {deleteStatus.kind === 'saving' && 'Deleting…'}
+              {deleteStatus.kind === 'error' && deleteStatus.message}
+            </span>
+          </div>
+        </div>
+      </Modal>
+
       <ul className="flex list-none flex-col gap-2 p-0">
         {categories.map((category) => {
           const budget = budgets.find((b) => b.category === category._id)
@@ -183,6 +362,16 @@ function BudgetSetup() {
               >
                 <EditIcon />
               </button>
+              {!category.isDefault && (
+                <button
+                  type="button"
+                  aria-label="Delete category"
+                  onClick={() => handleOpenDelete(category._id)}
+                  className={iconButtonClassName}
+                >
+                  <DeleteIcon />
+                </button>
+              )}
             </li>
           )
         })}

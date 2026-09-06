@@ -11,3 +11,14 @@ export interface Category {
 export function getCategories(): Promise<Category[]> {
   return apiFetch<Category[]>('/api/categories')
 }
+
+export function createCategory(name: string): Promise<Category> {
+  return apiFetch<Category>('/api/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export function deleteCategory(id: string): Promise<{ deleted: boolean }> {
+  return apiFetch<{ deleted: boolean }>(`/api/categories/${id}`, { method: 'DELETE' })
+}
