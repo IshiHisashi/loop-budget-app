@@ -362,16 +362,16 @@ function BudgetSetup() {
               >
                 <EditIcon />
               </button>
-              {!category.isDefault && (
-                <button
-                  type="button"
-                  aria-label="Delete category"
-                  onClick={() => handleOpenDelete(category._id)}
-                  className={iconButtonClassName}
-                >
-                  <DeleteIcon />
-                </button>
-              )}
+              <button
+                type="button"
+                aria-label="Delete category"
+                title={category.isDefault ? "Predefined categories can't be deleted" : undefined}
+                disabled={category.isDefault}
+                onClick={() => handleOpenDelete(category._id)}
+                className={iconButtonClassName}
+              >
+                <DeleteIcon />
+              </button>
             </li>
           )
         })}

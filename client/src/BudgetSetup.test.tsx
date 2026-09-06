@@ -218,19 +218,26 @@ describe('BudgetSetup', () => {
     expect(within(rowFor('Food')).getByText('$500.00')).toBeInTheDocument()
   })
 
-  it('shows a delete icon only for non-default categories', async () => {
+  it('shows a delete icon on every row, disabled for default categories', async () => {
     render(<BudgetSetup />)
     await screen.findByText('Gifts')
 
-    expect(
-      within(rowFor('Food')).queryByRole('button', { name: 'Delete category' })
-    ).not.toBeInTheDocument()
-    expect(
-      within(rowFor('Rent')).queryByRole('button', { name: 'Delete category' })
-    ).not.toBeInTheDocument()
+    expect(within(rowFor('Food')).getByRole('button', { name: 'Delete category' })).toBeDisabled()
+    expect(within(rowFor('Rent')).getByRole('button', { name: 'Delete category' })).toBeDisabled()
     expect(
       within(rowFor('Gifts')).getByRole('button', { name: 'Delete category' })
-    ).toBeInTheDocument()
+    ).not.toBeDisabled()
+  })
+
+  it('does nothing when clicking the delete icon on a default category', async () => {
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    const callsBefore = vi.mocked(fetch).mock.calls.length
+    fireEvent.click(within(rowFor('Food')).getByRole('button', { name: 'Delete category' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.length).toBe(callsBefore)
   })
 
   it('adds a category via POST, appends it to the list, and shows a success flash that auto-closes', async () => {
