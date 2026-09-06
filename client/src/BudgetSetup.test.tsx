@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BudgetSetup from './BudgetSetup.tsx'
 
@@ -10,7 +10,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response
 }
 
-function mockFetch(options: { failPut?: boolean } = {}) {
+function mockFetch(
+  options: { failPut?: boolean; failPost?: number; failDelete?: number } = {}
+) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
 
@@ -18,7 +20,29 @@ function mockFetch(options: { failPut?: boolean } = {}) {
       return jsonResponse([
         { _id: 'cat1', name: 'Food', isDefault: true, createdAt: '', updatedAt: '' },
         { _id: 'cat2', name: 'Rent', isDefault: true, createdAt: '', updatedAt: '' },
+        { _id: 'cat3', name: 'Gifts', isDefault: false, createdAt: '', updatedAt: '' },
       ])
+    }
+
+    if (url.endsWith('/api/categories') && method === 'POST') {
+      if (options.failPost) {
+        return jsonResponse({ error: 'a category with this name already exists' }, options.failPost)
+      }
+      const body = JSON.parse(init!.body as string) as { name: string }
+      return jsonResponse(
+        { _id: 'cat4', name: body.name, isDefault: false, createdAt: '', updatedAt: '' },
+        201
+      )
+    }
+
+    if (url.endsWith('/api/categories/cat3') && method === 'DELETE') {
+      if (options.failDelete) {
+        return jsonResponse(
+          { error: 'category has a budget entry and cannot be deleted' },
+          options.failDelete
+        )
+      }
+      return jsonResponse({ deleted: true })
     }
 
     if (url.endsWith('/api/budgets') && method === 'GET') {
@@ -51,6 +75,10 @@ function rowFor(categoryName: string): HTMLElement {
 
 function openEditModal(categoryName: string) {
   fireEvent.click(within(rowFor(categoryName)).getByRole('button', { name: 'Edit budget' }))
+}
+
+function openDeleteModal(categoryName: string) {
+  fireEvent.click(within(rowFor(categoryName)).getByRole('button', { name: 'Delete category' }))
 }
 
 beforeEach(() => {
@@ -188,5 +216,134 @@ describe('BudgetSetup', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
     expect(within(rowFor('Food')).getByText('$500.00')).toBeInTheDocument()
+  })
+
+  it('shows a delete icon only for non-default categories', async () => {
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    expect(
+      within(rowFor('Food')).queryByRole('button', { name: 'Delete category' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(rowFor('Rent')).queryByRole('button', { name: 'Delete category' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(rowFor('Gifts')).getByRole('button', { name: 'Delete category' })
+    ).toBeInTheDocument()
+  })
+
+  it('adds a category via POST, appends it to the list, and shows a success flash that auto-closes', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<BudgetSetup />)
+      await screen.findByText('Gifts')
+
+      fireEvent.click(screen.getByRole('button', { name: '+ Add category' }))
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Hobbies' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await screen.findByText('Added ✓')
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/categories'),
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Hobbies' }) })
+      )
+      expect(screen.getByText('Hobbies')).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000)
+      })
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rejects a blank category name client-side without calling the API', async () => {
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add category' }))
+    const postCallsBefore = vi.mocked(fetch).mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('Enter a category name')
+    expect(vi.mocked(fetch).mock.calls.length).toBe(postCallsBefore)
+  })
+
+  it('shows the server error inline when adding a duplicate category name, and keeps the modal open', async () => {
+    vi.stubGlobal('fetch', mockFetch({ failPost: 409 }))
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add category' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Gifts' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await screen.findByText('a category with this name already exists')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryAllByText('Gifts')).toHaveLength(1)
+  })
+
+  it('discards the typed name when the add-category modal is cancelled', async () => {
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add category' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Hobbies' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hobbies')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '+ Add category' }))
+    expect(screen.getByLabelText('Name')).toHaveValue('')
+  })
+
+  it('deletes a category via DELETE and removes it from the list', async () => {
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    openDeleteModal('Gifts')
+    expect(screen.getByText('Delete “Gifts”?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/categories/cat3'),
+        expect.objectContaining({ method: 'DELETE' })
+      )
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Gifts')).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows the server error inline on a failed delete, and leaves the row in place', async () => {
+    vi.stubGlobal('fetch', mockFetch({ failDelete: 409 }))
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    openDeleteModal('Gifts')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await screen.findByText('category has a budget entry and cannot be deleted')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('Gifts')).toBeInTheDocument()
+  })
+
+  it('cancels the delete-category modal without calling the API', async () => {
+    render(<BudgetSetup />)
+    await screen.findByText('Gifts')
+
+    openDeleteModal('Gifts')
+    const deleteCallsBefore = vi.mocked(fetch).mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.length).toBe(deleteCallsBefore)
+    expect(screen.getByText('Gifts')).toBeInTheDocument()
   })
 })
