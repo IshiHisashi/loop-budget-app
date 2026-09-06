@@ -95,11 +95,12 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
     return res.status(409).json({ error: 'category has a budget entry and cannot be deleted' })
   }
 
-  const hasExpense = await Expense.exists({ category: id, userId })
-  if (hasExpense) {
-    return res.status(409).json({ error: 'category has expense entries and cannot be deleted' })
+  const others = await Category.findOne({ userId, isDefault: true, name: 'Others' })
+  if (!others) {
+    return res.status(500).json({ error: 'the "Others" category is missing for this account' })
   }
 
+  await Expense.updateMany({ userId, category: id }, { $set: { category: others._id } })
   await category.deleteOne()
   res.status(200).json({ deleted: true })
 })
