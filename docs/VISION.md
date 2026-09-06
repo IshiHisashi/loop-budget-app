@@ -38,6 +38,15 @@ private to them; the app has no shared or cross-user views.
   given month, including a calendar view of that month's entries.
 - **Budget vs actual**: view actual spend against budget, per category,
   per month.
+- **Recurring subscriptions**: define a user-entered recurring monthly
+  expense — amount, category, a fixed day of the month, a start month,
+  and an optional end month (open-ended if unset) — so it doesn't need
+  to be logged by hand every month. Expenses generated from a
+  subscription are traceable back to it. This narrows and supersedes
+  the old "Recurring-transaction automation" non-goal: it's scoped to
+  user-defined recurring expenses only, not automatic detection of
+  recurring charges from a bank feed — that stays out, see Non-goals'
+  bank-sync entry.
 
 ## Non-goals for v1
 
@@ -54,7 +63,6 @@ Explicit, so the loop doesn't scope-creep during planning:
   account from any device — that's just login working normally, not a
   sync feature)
 - Mobile app
-- Recurring-transaction automation
 
 These may become real epics later, but only after an explicit VISION.md
 update — not as a side effect of an unrelated feature's spec.
