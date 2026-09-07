@@ -13,6 +13,7 @@ export interface ExpenseDocument extends Document {
   amount: number
   category: Types.ObjectId
   note?: string
+  subscription?: Types.ObjectId
   createdAt: Date
   updatedAt: Date
 }
@@ -24,8 +25,20 @@ const expenseSchema = new Schema<ExpenseDocument>(
     amount: { type: Number, required: true, min: MIN_EXPENSE_AMOUNT },
     category: { type: Schema.Types.ObjectId, ref: 'Category', required: true },
     note: { type: String, trim: true },
+    subscription: { type: Schema.Types.ObjectId, ref: 'Subscription' },
   },
   { timestamps: true }
+)
+
+// At most one generated expense per subscription per month — the
+// clamped date generation computes is deterministic for a given
+// subscription+month, so this index turns a concurrent-request race
+// into a safe duplicate-key no-op instead of a duplicate expense.
+// Scoped to documents that have a subscription so manually-logged
+// expenses (no subscription) can still share any date freely.
+expenseSchema.index(
+  { subscription: 1, date: 1 },
+  { unique: true, partialFilterExpression: { subscription: { $exists: true } } }
 )
 
 export default mongoose.model<ExpenseDocument>('Expense', expenseSchema)

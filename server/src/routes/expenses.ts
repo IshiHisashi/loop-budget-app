@@ -2,9 +2,54 @@ import { Request, Response, Router } from 'express'
 import mongoose from 'mongoose'
 import Expense, { MIN_EXPENSE_AMOUNT } from '../models/Expense.js'
 import Category from '../models/Category.js'
+import Subscription from '../models/Subscription.js'
 import { parseMonthRange } from '../utils/monthRange.js'
+import { clampDayOfMonth } from '../utils/dayOfMonth.js'
 
 const router = Router()
+
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 11000
+}
+
+// Lazily materializes this month's expense for every subscription
+// active in it, so a recurring expense shows up without a cron/scheduler
+// — the tradeoff is it only appears once someone has viewed that month.
+// The upsert races safely under concurrent calls for the same month:
+// Expense's partial unique index on (subscription, date) makes the
+// loser's insert a duplicate-key error, caught below as a no-op rather
+// than a duplicate expense.
+async function generateSubscriptionExpenses(userId: string, month: string): Promise<void> {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const subscriptions = await Subscription.find({
+    userId,
+    startMonth: { $lte: month },
+    $or: [{ endMonth: { $exists: false } }, { endMonth: { $gte: month } }],
+  })
+
+  for (const subscription of subscriptions) {
+    const day = clampDayOfMonth(year, monthNumber, subscription.dayOfMonth)
+    const date = new Date(Date.UTC(year, monthNumber - 1, day))
+
+    try {
+      await Expense.updateOne(
+        { userId, subscription: subscription._id, date },
+        {
+          $setOnInsert: {
+            userId,
+            subscription: subscription._id,
+            date,
+            amount: subscription.amount,
+            category: subscription.category,
+          },
+        },
+        { upsert: true }
+      )
+    } catch (err) {
+      if (!isDuplicateKeyError(err)) throw err
+    }
+  }
+}
 
 router.get('/', async (req: Request, res: Response) => {
   const userId = req.userId as string
@@ -16,6 +61,8 @@ router.get('/', async (req: Request, res: Response) => {
   if (!range) {
     return res.status(400).json({ error: 'month must be in YYYY-MM format' })
   }
+
+  await generateSubscriptionExpenses(userId, month)
 
   const expenses = await Expense.find({
     userId,

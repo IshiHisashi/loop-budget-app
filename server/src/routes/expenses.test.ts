@@ -4,6 +4,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import app from '../app.js'
 import Category from '../models/Category.js'
 import Expense from '../models/Expense.js'
+import Subscription from '../models/Subscription.js'
 import { getAuthenticatedAgent } from '../testUtils/authTestHelper.js'
 
 let mongod: MongoMemoryServer
@@ -18,6 +19,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await Expense.deleteMany({})
+  await Subscription.deleteMany({})
   await Category.deleteMany({})
 })
 
@@ -87,6 +89,176 @@ describe('GET /api/expenses', () => {
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual([])
+  })
+})
+
+describe('GET /api/expenses — subscription-generated expenses', () => {
+  it('generates an expense for an active subscription when its month is first viewed', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    const subscription = await Subscription.create({
+      userId,
+      name: 'Netflix',
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    const res = await agent.get('/api/expenses?month=2026-01')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveLength(1)
+    expect(res.body[0]).toMatchObject({
+      amount: 9.99,
+      category: category._id.toString(),
+      subscription: subscription._id.toString(),
+    })
+    expect(new Date(res.body[0].date).toISOString()).toBe('2026-01-15T00:00:00.000Z')
+  })
+
+  it('does not generate anything for a month before startMonth or after endMonth', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-03',
+      endMonth: '2026-05',
+    })
+
+    const beforeRes = await agent.get('/api/expenses?month=2026-02')
+    expect(beforeRes.body).toEqual([])
+
+    const afterRes = await agent.get('/api/expenses?month=2026-06')
+    expect(afterRes.body).toEqual([])
+  })
+
+  it('generates for an open-ended subscription viewed far in the future', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    const res = await agent.get('/api/expenses?month=2030-01')
+
+    expect(res.body).toHaveLength(1)
+  })
+
+  it('clamps dayOfMonth 31 to the last real day when the viewed month is February', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 31,
+      startMonth: '2026-01',
+    })
+
+    const res = await agent.get('/api/expenses?month=2026-02')
+
+    expect(res.body).toHaveLength(1)
+    expect(new Date(res.body[0].date).toISOString()).toBe('2026-02-28T00:00:00.000Z')
+  })
+
+  it('does not create a duplicate when the same month is fetched twice', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    const subscription = await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    await agent.get('/api/expenses?month=2026-01')
+    await agent.get('/api/expenses?month=2026-01')
+
+    const count = await Expense.countDocuments({ subscription: subscription._id })
+    expect(count).toBe(1)
+  })
+
+  it('does not create a duplicate under concurrent requests for the same month', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    const subscription = await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    await Promise.all([
+      agent.get('/api/expenses?month=2026-01'),
+      agent.get('/api/expenses?month=2026-01'),
+    ])
+
+    const count = await Expense.countDocuments({ subscription: subscription._id })
+    expect(count).toBe(1)
+  })
+
+  it('leaves an already-generated expense unchanged after the subscription is edited', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    const subscription = await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    await agent.get('/api/expenses?month=2026-01')
+    await agent.patch(`/api/subscriptions/${subscription._id}`).send({ amount: 14.99 })
+
+    const res = await agent.get('/api/expenses?month=2026-01')
+
+    expect(res.body).toHaveLength(1)
+    expect(res.body[0].amount).toBe(9.99)
+  })
+
+  it('leaves an already-generated expense in place after the subscription is deleted, and generates nothing new for it', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    const subscription = await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    await agent.get('/api/expenses?month=2026-01')
+    await agent.delete(`/api/subscriptions/${subscription._id}`)
+
+    const janRes = await agent.get('/api/expenses?month=2026-01')
+    expect(janRes.body).toHaveLength(1)
+
+    const febRes = await agent.get('/api/expenses?month=2026-02')
+    expect(febRes.body).toEqual([])
+  })
+
+  it('allows a generated expense to be edited and deleted like a normal expense', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+    const generated = (await agent.get('/api/expenses?month=2026-01')).body[0]
+
+    const patchRes = await agent.patch(`/api/expenses/${generated._id}`).send({ amount: 12 })
+    expect(patchRes.status).toBe(200)
+    expect(patchRes.body.amount).toBe(12)
+
+    const deleteRes = await agent.delete(`/api/expenses/${generated._id}`)
+    expect(deleteRes.status).toBe(200)
+    const found = await Expense.findById(generated._id)
+    expect(found).toBeNull()
   })
 })
 
