@@ -16,9 +16,12 @@ function isDuplicateKeyError(err: unknown): boolean {
 // active in it, so a recurring expense shows up without a cron/scheduler
 // — the tradeoff is it only appears once someone has viewed that month.
 // The upsert races safely under concurrent calls for the same month:
-// Expense's partial unique index on (subscription, date) makes the
-// loser's insert a duplicate-key error, caught below as a no-op rather
-// than a duplicate expense.
+// Expense's partial unique index on (subscription, subscriptionMonth) makes
+// the loser's insert a duplicate-key error, caught below as a no-op rather
+// than a duplicate expense. Keying on subscriptionMonth (not date) also
+// makes a later dayOfMonth edit a no-op instead of a second expense: date
+// is derived from dayOfMonth at generation time and can drift, but
+// subscriptionMonth doesn't.
 async function generateSubscriptionExpenses(userId: string, month: string): Promise<void> {
   const [year, monthNumber] = month.split('-').map(Number)
   const subscriptions = await Subscription.find({
@@ -33,11 +36,12 @@ async function generateSubscriptionExpenses(userId: string, month: string): Prom
 
     try {
       await Expense.updateOne(
-        { userId, subscription: subscription._id, date },
+        { userId, subscription: subscription._id, subscriptionMonth: month },
         {
           $setOnInsert: {
             userId,
             subscription: subscription._id,
+            subscriptionMonth: month,
             date,
             amount: subscription.amount,
             category: subscription.category,

@@ -220,6 +220,25 @@ describe('GET /api/expenses — subscription-generated expenses', () => {
     expect(res.body[0].amount).toBe(9.99)
   })
 
+  it('does not create a second expense when dayOfMonth is edited after generation', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    const subscription = await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 15,
+      startMonth: '2026-01',
+    })
+
+    await agent.get('/api/expenses?month=2026-01')
+    await agent.patch(`/api/subscriptions/${subscription._id}`).send({ dayOfMonth: 20 })
+
+    const res = await agent.get('/api/expenses?month=2026-01')
+
+    expect(res.body).toHaveLength(1)
+    expect(new Date(res.body[0].date).toISOString()).toBe('2026-01-15T00:00:00.000Z')
+  })
+
   it('leaves an already-generated expense in place after the subscription is deleted, and generates nothing new for it', async () => {
     const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
     const subscription = await Subscription.create({
