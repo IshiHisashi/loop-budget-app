@@ -9,6 +9,7 @@ describe('Layout', () => {
     expect(screen.getByTestId('tab-expenses')).not.toHaveAttribute('hidden')
     expect(screen.getByTestId('tab-budgets')).toHaveAttribute('hidden')
     expect(screen.getByTestId('tab-report')).toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-subscriptions')).toHaveAttribute('hidden')
     expect(screen.getByTestId('tab-settings')).toHaveAttribute('hidden')
     expect(screen.getByRole('button', { name: 'Expenses' })).toHaveAttribute(
       'aria-current',
@@ -42,6 +43,21 @@ describe('Layout', () => {
     expect(screen.getByTestId('tab-budgets')).toHaveAttribute('hidden')
     expect(screen.getByTestId('tab-expenses')).toHaveAttribute('hidden')
     expect(screen.getByRole('button', { name: 'Budget vs Actual' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+  })
+
+  it('switches to the Subscriptions tab', () => {
+    render(<Layout onLogout={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Subscriptions' }))
+
+    expect(screen.getByTestId('tab-subscriptions')).not.toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-budgets')).toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-expenses')).toHaveAttribute('hidden')
+    expect(screen.getByTestId('tab-report')).toHaveAttribute('hidden')
+    expect(screen.getByRole('button', { name: 'Subscriptions' })).toHaveAttribute(
       'aria-current',
       'page'
     )
