@@ -2,9 +2,10 @@ import { SVGProps, useState } from 'react'
 import BudgetSetup from './BudgetSetup.tsx'
 import ExpenseLog from './ExpenseLog.tsx'
 import BudgetVsActual from './BudgetVsActual.tsx'
+import Subscriptions from './Subscriptions.tsx'
 import { cardClassName, pageBackgroundClassName } from './theme.ts'
 
-type Tab = 'budgets' | 'expenses' | 'report' | 'settings'
+type Tab = 'budgets' | 'expenses' | 'report' | 'subscriptions' | 'settings'
 
 function iconProps(props: SVGProps<SVGSVGElement>): SVGProps<SVGSVGElement> {
   return {
@@ -43,6 +44,17 @@ function BarChartIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...iconProps(props)}>
       <path d="M4 20V10M12 20V4M20 20v-7" />
+    </svg>
+  )
+}
+
+function RepeatIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...iconProps(props)}>
+      <path d="M17 2l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 22l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
     </svg>
   )
 }
@@ -99,6 +111,15 @@ function Layout({ onLogout }: LayoutProps) {
             <BarChartIcon />
             Budget vs Actual
           </button>
+          <button
+            type="button"
+            aria-current={activeTab === 'subscriptions' ? 'page' : undefined}
+            onClick={() => setActiveTab('subscriptions')}
+            className={navItemClassName}
+          >
+            <RepeatIcon />
+            Subscriptions
+          </button>
           <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-700">
             <button
               type="button"
@@ -122,6 +143,9 @@ function Layout({ onLogout }: LayoutProps) {
           </div>
           <div data-testid="tab-report" hidden={activeTab !== 'report'}>
             <BudgetVsActual />
+          </div>
+          <div data-testid="tab-subscriptions" hidden={activeTab !== 'subscriptions'}>
+            <Subscriptions />
           </div>
           <div data-testid="tab-settings" hidden={activeTab !== 'settings'}>
             <section className={cardClassName}>
