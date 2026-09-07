@@ -34,6 +34,19 @@ function BudgetVsActual() {
     }
   }, [month])
 
+  const totals = categories.reduce(
+    (acc, category) => {
+      const row = rows.find((r) => r.category === category._id)
+      return {
+        budgeted: acc.budgeted + (row?.budgeted ?? 0),
+        actual: acc.actual + (row?.actual ?? 0),
+      }
+    },
+    { budgeted: 0, actual: 0 }
+  )
+  const totalDifference = Math.round((totals.budgeted - totals.actual) * 100) / 100
+  const totalOverBudget = totalDifference < 0
+
   return (
     <section className={`${baseCardClassName} mb-6`}>
       <h2 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
@@ -111,6 +124,32 @@ function BudgetVsActual() {
               )
             })}
           </tbody>
+          <tfoot>
+            <tr
+              className={
+                totalOverBudget
+                  ? 'bg-red-50 font-medium dark:bg-red-900/20'
+                  : 'bg-neutral-100 font-medium dark:bg-neutral-800'
+              }
+            >
+              <td className="border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600">
+                Total
+              </td>
+              <td className="border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600">
+                {totals.budgeted}
+              </td>
+              <td className="border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600">
+                {totals.actual}
+              </td>
+              <td
+                className={`border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600 ${
+                  totalOverBudget ? 'text-red-600 dark:text-red-400' : ''
+                }`}
+              >
+                {totalDifference}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       )}
     </section>

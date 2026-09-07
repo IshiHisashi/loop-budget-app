@@ -204,6 +204,7 @@ function BudgetSetup() {
 
   const editingCategory = categories.find((category) => category._id === editingCategoryId) ?? null
   const deletingCategory = categories.find((category) => category._id === deletingCategoryId) ?? null
+  const totalBudgeted = budgets.reduce((sum, budget) => sum + budget.amount, 0)
 
   return (
     <section className={cardClassName}>
@@ -376,6 +377,11 @@ function BudgetSetup() {
           )
         })}
       </ul>
+
+      <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4 font-medium text-neutral-900 dark:border-neutral-700 dark:text-neutral-100">
+        <span>Total budgeted</span>
+        <span>${totalBudgeted.toFixed(2)}</span>
+      </div>
     </section>
   )
 }

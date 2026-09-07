@@ -81,6 +81,10 @@ function openDeleteModal(categoryName: string) {
   fireEvent.click(within(rowFor(categoryName)).getByRole('button', { name: 'Delete category' }))
 }
 
+function totalRow(): HTMLElement {
+  return screen.getByText('Total budgeted').closest('div') as HTMLElement
+}
+
 beforeEach(() => {
   vi.stubGlobal('fetch', mockFetch())
 })
@@ -97,6 +101,13 @@ describe('BudgetSetup', () => {
     expect(within(rowFor('Food')).getByText('$300.00')).toBeInTheDocument()
     expect(within(rowFor('Rent')).getByText('Not budgeted')).toBeInTheDocument()
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+  })
+
+  it('shows the total budgeted amount as the sum of all budgets', async () => {
+    render(<BudgetSetup />)
+
+    await screen.findByText('Food')
+    expect(within(totalRow()).getByText('$300.00')).toBeInTheDocument()
   })
 
   it('saves an edited amount via PUT and closes the modal immediately, with no lingering success message', async () => {
@@ -122,6 +133,7 @@ describe('BudgetSetup', () => {
     })
     expect(screen.queryByText('Saved ✓')).not.toBeInTheDocument()
     expect(within(rowFor('Rent')).getByText('$1200.00')).toBeInTheDocument()
+    expect(within(totalRow()).getByText('$1500.00')).toBeInTheDocument()
   })
 
   it('rejects an invalid amount client-side without calling the API', async () => {
