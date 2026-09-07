@@ -33,6 +33,13 @@ function mockFetch() {
       ])
     }
 
+    if (url.includes('/api/budget-vs-actual?month=2026-04')) {
+      return jsonResponse([
+        { category: 'cat1', budgeted: 300, actual: 400 },
+        { category: 'cat2', budgeted: 1200, actual: 1500 },
+      ])
+    }
+
     if (url.includes('/api/budget-vs-actual?month=')) {
       return jsonResponse([
         { category: 'cat1', budgeted: 300, actual: 245.5 },
@@ -48,6 +55,10 @@ function cellTexts(row: HTMLElement): string[] {
   return within(row)
     .getAllByRole('cell')
     .map((cell) => cell.textContent ?? '')
+}
+
+function totalsRow(): HTMLElement {
+  return screen.getByText('Total').closest('tr') as HTMLElement
 }
 
 beforeEach(() => {
@@ -67,6 +78,8 @@ describe('BudgetVsActual', () => {
 
     const rentRow = screen.getByText('Rent').closest('tr') as HTMLElement
     expect(cellTexts(rentRow)).toEqual(['Rent', '1200', '1200', '0'])
+
+    expect(cellTexts(totalsRow())).toEqual(['Total', '1500', '1445.5', '54.5'])
   })
 
   it('refetches with the new month when the month input changes', async () => {
@@ -87,6 +100,7 @@ describe('BudgetVsActual', () => {
       const foodRow = screen.getByText('Food').closest('tr') as HTMLElement
       expect(cellTexts(foodRow)).toEqual(['Food', '300', '100', '200'])
     })
+    expect(cellTexts(totalsRow())).toEqual(['Total', '1500', '1300', '200'])
   })
 
   it('flags an over-budget row with red styling, leaves an under-budget row unstyled', async () => {
@@ -113,5 +127,23 @@ describe('BudgetVsActual', () => {
 
     expect(rentRow.className).not.toContain('bg-red-50')
     expect(rentDifferenceCell.className).not.toContain('text-red-600')
+  })
+
+  it('flags the totals row with red styling when the aggregate is over budget', async () => {
+    render(<BudgetVsActual />)
+    await screen.findByText('Food')
+
+    const monthInput = screen.getByLabelText('Month')
+    fireEvent.change(monthInput, { target: { value: '2026-04' } })
+
+    await waitFor(() => {
+      expect(cellTexts(totalsRow())).toEqual(['Total', '1500', '1900', '-400'])
+    })
+
+    const totalDifferenceCell = within(totalsRow()).getAllByRole('cell')[3]
+    expect(totalsRow().className).toContain('bg-red-50')
+    expect(totalsRow().className).toContain('dark:bg-red-900/20')
+    expect(totalDifferenceCell.className).toContain('text-red-600')
+    expect(totalDifferenceCell.className).toContain('dark:text-red-400')
   })
 })
