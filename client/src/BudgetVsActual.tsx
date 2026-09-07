@@ -44,6 +44,10 @@ function BudgetVsActual() {
     },
     { budgeted: 0, actual: 0 }
   )
+  const roundedTotals = {
+    budgeted: Math.round(totals.budgeted * 100) / 100,
+    actual: Math.round(totals.actual * 100) / 100,
+  }
   const totalDifference = Math.round((totals.budgeted - totals.actual) * 100) / 100
   const totalOverBudget = totalDifference < 0
 
@@ -136,10 +140,10 @@ function BudgetVsActual() {
                 Total
               </td>
               <td className="border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600">
-                {totals.budgeted}
+                {roundedTotals.budgeted}
               </td>
               <td className="border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600">
-                {totals.actual}
+                {roundedTotals.actual}
               </td>
               <td
                 className={`border-t-2 border-neutral-300 px-3 py-2 dark:border-neutral-600 ${
