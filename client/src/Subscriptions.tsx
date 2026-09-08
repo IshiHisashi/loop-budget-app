@@ -38,6 +38,7 @@ interface Draft {
   amount: string
   category: string
   dayOfMonth: string
+  isEndOfMonth: boolean
   startMonth: string
   endMonth: string
 }
@@ -47,6 +48,7 @@ const emptyDraft: Draft = {
   amount: '',
   category: '',
   dayOfMonth: '',
+  isEndOfMonth: false,
   startMonth: currentMonth(),
   endMonth: '',
 }
@@ -57,17 +59,25 @@ function toDraft(subscription: Subscription): Draft {
     amount: String(subscription.amount),
     category: subscription.category,
     dayOfMonth: String(subscription.dayOfMonth),
+    isEndOfMonth: subscription.dayOfMonth === 31,
     startMonth: subscription.startMonth,
     endMonth: subscription.endMonth ?? '',
   }
+}
+
+function parseDayOfMonth(draft: Draft): number | null {
+  if (draft.isEndOfMonth) return 31
+  const dayOfMonth = Number(draft.dayOfMonth)
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return null
+  return dayOfMonth
 }
 
 function parseDraft(draft: Draft): SubscriptionInput | null {
   if (!draft.category || !draft.startMonth) return null
   const amount = Number(draft.amount)
   if (!Number.isFinite(amount) || amount <= 0) return null
-  const dayOfMonth = Number(draft.dayOfMonth)
-  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return null
+  const dayOfMonth = parseDayOfMonth(draft)
+  if (dayOfMonth === null) return null
 
   return {
     amount,
@@ -83,8 +93,8 @@ function parseEditDraft(draft: Draft): SubscriptionUpdateInput | null {
   if (!draft.category || !draft.startMonth) return null
   const amount = Number(draft.amount)
   if (!Number.isFinite(amount) || amount <= 0) return null
-  const dayOfMonth = Number(draft.dayOfMonth)
-  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return null
+  const dayOfMonth = parseDayOfMonth(draft)
+  if (dayOfMonth === null) return null
 
   return {
     name: draft.name.trim(),
@@ -352,12 +362,24 @@ function Subscriptions() {
               min="1"
               max="31"
               step="1"
-              value={newDraft.dayOfMonth}
+              disabled={newDraft.isEndOfMonth}
+              value={newDraft.isEndOfMonth ? '' : newDraft.dayOfMonth}
+              placeholder={newDraft.isEndOfMonth ? 'Last day' : undefined}
               onChange={(event) =>
                 setNewDraft((prev) => ({ ...prev, dayOfMonth: event.target.value }))
               }
               className={inputClassName}
             />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+            <input
+              type="checkbox"
+              checked={newDraft.isEndOfMonth}
+              onChange={(event) =>
+                setNewDraft((prev) => ({ ...prev, isEndOfMonth: event.target.checked }))
+              }
+            />
+            End of month
           </label>
           <label className={labelClassName}>
             Start month
@@ -469,12 +491,24 @@ function Subscriptions() {
               min="1"
               max="31"
               step="1"
-              value={editDraft.dayOfMonth}
+              disabled={editDraft.isEndOfMonth}
+              value={editDraft.isEndOfMonth ? '' : editDraft.dayOfMonth}
+              placeholder={editDraft.isEndOfMonth ? 'Last day' : undefined}
               onChange={(event) =>
                 setEditDraft((prev) => ({ ...prev, dayOfMonth: event.target.value }))
               }
               className={inputClassName}
             />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+            <input
+              type="checkbox"
+              checked={editDraft.isEndOfMonth}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, isEndOfMonth: event.target.checked }))
+              }
+            />
+            End of month
           </label>
           <label className={labelClassName}>
             Start month
@@ -597,7 +631,7 @@ function Subscriptions() {
                     ${subscription.amount.toFixed(2)}
                   </td>
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                    {subscription.dayOfMonth}
+                    {subscription.dayOfMonth === 31 ? 'End of month' : subscription.dayOfMonth}
                   </td>
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
                     {subscription.startMonth}
