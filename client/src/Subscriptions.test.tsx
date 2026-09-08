@@ -10,7 +10,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response
 }
 
-function mockFetch(options: { failPost?: number; failDelete?: number } = {}) {
+function mockFetch(
+  options: { failPost?: number; failPatch?: number; failDelete?: number } = {}
+) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET'
 
@@ -57,6 +59,18 @@ function mockFetch(options: { failPost?: number; failDelete?: number } = {}) {
       )
     }
 
+    if (
+      (url.endsWith('/api/subscriptions/sub1') || url.endsWith('/api/subscriptions/sub2')) &&
+      method === 'PATCH'
+    ) {
+      if (options.failPatch) {
+        return jsonResponse({ error: 'endMonth cannot precede startMonth' }, options.failPatch)
+      }
+      const id = url.endsWith('sub1') ? 'sub1' : 'sub2'
+      const body = JSON.parse(init!.body as string)
+      return jsonResponse({ _id: id, createdAt: '', updatedAt: '', ...body })
+    }
+
     if (url.endsWith('/api/subscriptions/sub1') && method === 'DELETE') {
       if (options.failDelete) {
         return jsonResponse(
@@ -81,6 +95,10 @@ function openAddModal() {
 
 function openDeleteModal(label: string) {
   fireEvent.click(within(rowFor(label)).getByRole('button', { name: 'Delete subscription' }))
+}
+
+function openEditModal(label: string) {
+  fireEvent.click(within(rowFor(label)).getByRole('button', { name: 'Edit subscription' }))
 }
 
 beforeEach(() => {
@@ -244,5 +262,122 @@ describe('Subscriptions', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(vi.mocked(fetch).mock.calls.length).toBe(callsBefore)
     expect(screen.getByText('Netflix')).toBeInTheDocument()
+  })
+
+  it('pre-fills the edit modal with the subscription\'s current values', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Netflix')
+    expect(screen.getByLabelText('Name')).toHaveValue('Netflix')
+    expect(screen.getByLabelText('Amount')).toHaveValue(9.99)
+    expect(screen.getByLabelText('Category')).toHaveValue('cat1')
+    expect(screen.getByLabelText('Day of month')).toHaveValue(15)
+    expect(screen.getByLabelText('Start month')).toHaveValue('2026-01')
+    expect(screen.getByLabelText('End month (optional)')).toHaveValue('')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    openEditModal('Rent')
+    expect(screen.getByLabelText('Name')).toHaveValue('')
+    expect(screen.getByLabelText('Amount')).toHaveValue(1200)
+    expect(screen.getByLabelText('Category')).toHaveValue('cat2')
+    expect(screen.getByLabelText('Day of month')).toHaveValue(1)
+    expect(screen.getByLabelText('Start month')).toHaveValue('2026-02')
+    expect(screen.getByLabelText('End month (optional)')).toHaveValue('2026-12')
+  })
+
+  it('saves an edit via PATCH, updates the row in place, and closes immediately with no lingering message', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Netflix')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '14.99' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/subscriptions/sub1'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: 'Netflix',
+            amount: 14.99,
+            category: 'cat1',
+            dayOfMonth: 15,
+            startMonth: '2026-01',
+            endMonth: null,
+          }),
+        })
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Saved ✓')).not.toBeInTheDocument()
+    expect(within(rowFor('Netflix')).getByText('$14.99')).toBeInTheDocument()
+  })
+
+  it('clears a previously-set end month by sending endMonth: null', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Rent')
+    fireEvent.change(screen.getByLabelText('End month (optional)'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/subscriptions/sub2'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: expect.stringContaining('"endMonth":null'),
+        })
+      )
+    })
+  })
+
+  it('rejects an invalid edit draft client-side without calling the API', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Netflix')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '' } })
+    const callsBefore = vi.mocked(fetch).mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await screen.findByText(
+      'Enter a category, start month, positive amount, and a day of month from 1–31'
+    )
+    expect(vi.mocked(fetch).mock.calls.length).toBe(callsBefore)
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('shows the server error inline on a failed edit, and keeps the modal open', async () => {
+    vi.stubGlobal('fetch', mockFetch({ failPatch: 400 }))
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Netflix')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await screen.findByText('endMonth cannot precede startMonth')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('discards edit changes when the edit modal is cancelled', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Netflix')
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '999' } })
+    const callsBefore = vi.mocked(fetch).mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.length).toBe(callsBefore)
+
+    openEditModal('Netflix')
+    expect(screen.getByLabelText('Amount')).toHaveValue(9.99)
   })
 })
