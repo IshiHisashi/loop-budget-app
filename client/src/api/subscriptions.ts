@@ -32,6 +32,20 @@ export function createSubscription(data: SubscriptionInput): Promise<Subscriptio
   })
 }
 
+export interface SubscriptionUpdateInput extends Omit<Partial<SubscriptionInput>, 'endMonth'> {
+  endMonth?: string | null
+}
+
+export function updateSubscription(
+  id: string,
+  data: SubscriptionUpdateInput
+): Promise<Subscription> {
+  return apiFetch<Subscription>(`/api/subscriptions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
 export function deleteSubscription(id: string): Promise<{ deleted: boolean }> {
   return apiFetch<{ deleted: boolean }>(`/api/subscriptions/${id}`, { method: 'DELETE' })
 }

@@ -6,9 +6,11 @@ import {
   getSubscriptions,
   Subscription,
   SubscriptionInput,
+  SubscriptionUpdateInput,
+  updateSubscription,
 } from './api/subscriptions.ts'
 import { currentMonth } from './dateUtils.ts'
-import { DeleteIcon } from './icons.tsx'
+import { DeleteIcon, EditIcon } from './icons.tsx'
 import Modal from './Modal.tsx'
 import {
   cardClassName as baseCardClassName,
@@ -49,6 +51,17 @@ const emptyDraft: Draft = {
   endMonth: '',
 }
 
+function toDraft(subscription: Subscription): Draft {
+  return {
+    name: subscription.name ?? '',
+    amount: String(subscription.amount),
+    category: subscription.category,
+    dayOfMonth: String(subscription.dayOfMonth),
+    startMonth: subscription.startMonth,
+    endMonth: subscription.endMonth ?? '',
+  }
+}
+
 function parseDraft(draft: Draft): SubscriptionInput | null {
   if (!draft.category || !draft.startMonth) return null
   const amount = Number(draft.amount)
@@ -66,6 +79,23 @@ function parseDraft(draft: Draft): SubscriptionInput | null {
   }
 }
 
+function parseEditDraft(draft: Draft): SubscriptionUpdateInput | null {
+  if (!draft.category || !draft.startMonth) return null
+  const amount = Number(draft.amount)
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  const dayOfMonth = Number(draft.dayOfMonth)
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return null
+
+  return {
+    name: draft.name.trim(),
+    amount,
+    category: draft.category,
+    dayOfMonth,
+    startMonth: draft.startMonth,
+    endMonth: draft.endMonth ? draft.endMonth : null,
+  }
+}
+
 function Subscriptions() {
   const [categories, setCategories] = useState<Category[]>([])
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
@@ -77,9 +107,18 @@ function Subscriptions() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const addSuccessTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<Draft>(emptyDraft)
+  const [editStatus, setEditStatus] = useState<RowStatus>({ kind: 'idle' })
+  const editingIdRef = useRef(editingId)
+
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteStatus, setDeleteStatus] = useState<RowStatus>({ kind: 'idle' })
   const deletingIdRef = useRef(deletingId)
+
+  useEffect(() => {
+    editingIdRef.current = editingId
+  }, [editingId])
 
   useEffect(() => {
     deletingIdRef.current = deletingId
@@ -148,6 +187,49 @@ function Subscriptions() {
     }
   }
 
+  function handleOpenEdit(subscription: Subscription) {
+    setEditingId(subscription._id)
+    setEditDraft(toDraft(subscription))
+    setEditStatus({ kind: 'idle' })
+  }
+
+  function handleCancelEdit() {
+    if (editStatus.kind === 'saving') return
+    setEditingId(null)
+    setEditDraft(emptyDraft)
+    setEditStatus({ kind: 'idle' })
+  }
+
+  async function handleSaveEdit() {
+    if (!editingId) return
+    const targetId = editingId
+    const parsed = parseEditDraft(editDraft)
+    if (!parsed) {
+      setEditStatus({
+        kind: 'error',
+        message: 'Enter a category, start month, positive amount, and a day of month from 1–31',
+      })
+      return
+    }
+
+    setEditStatus({ kind: 'saving' })
+    try {
+      const updated = await updateSubscription(targetId, parsed)
+      setSubscriptions((prev) =>
+        prev.map((subscription) => (subscription._id === targetId ? updated : subscription))
+      )
+      if (editingIdRef.current === targetId) {
+        setEditingId(null)
+        setEditDraft(emptyDraft)
+        setEditStatus({ kind: 'idle' })
+      }
+    } catch (err) {
+      if (editingIdRef.current === targetId) {
+        setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      }
+    }
+  }
+
   function handleOpenDelete(id: string) {
     setDeletingId(id)
     setDeleteStatus({ kind: 'idle' })
@@ -198,8 +280,8 @@ function Subscriptions() {
 
   const deletingSubscription = subscriptions.find((s) => s._id === deletingId) ?? null
   const deletingLabel = deletingSubscription
-    ? (deletingSubscription.name ??
-      categories.find((category) => category._id === deletingSubscription.category)?.name ??
+    ? (deletingSubscription.name ||
+      categories.find((category) => category._id === deletingSubscription.category)?.name ||
       deletingSubscription.category)
     : null
 
@@ -329,6 +411,117 @@ function Subscriptions() {
         </form>
       </Modal>
 
+      <Modal open={editingId !== null} onClose={handleCancelEdit} title="Edit subscription">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            handleSaveEdit()
+          }}
+          className="flex flex-col gap-3"
+        >
+          <label className={labelClassName}>
+            Name
+            <input
+              type="text"
+              value={editDraft.name}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, name: event.target.value }))
+              }
+              className={inputClassName}
+            />
+          </label>
+          <label className={labelClassName}>
+            Amount
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={editDraft.amount}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, amount: event.target.value }))
+              }
+              className={inputClassName}
+            />
+          </label>
+          <label className={labelClassName}>
+            Category
+            <select
+              value={editDraft.category}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, category: event.target.value }))
+              }
+              className={inputClassName}
+            >
+              <option value="" disabled>
+                Select a category
+              </option>
+              {categories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={labelClassName}>
+            Day of month
+            <input
+              type="number"
+              min="1"
+              max="31"
+              step="1"
+              value={editDraft.dayOfMonth}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, dayOfMonth: event.target.value }))
+              }
+              className={inputClassName}
+            />
+          </label>
+          <label className={labelClassName}>
+            Start month
+            <input
+              type="month"
+              value={editDraft.startMonth}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, startMonth: event.target.value }))
+              }
+              className={inputClassName}
+            />
+          </label>
+          <label className={labelClassName}>
+            End month (optional)
+            <input
+              type="month"
+              value={editDraft.endMonth}
+              onChange={(event) =>
+                setEditDraft((prev) => ({ ...prev, endMonth: event.target.value }))
+              }
+              className={inputClassName}
+            />
+          </label>
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={editStatus.kind === 'saving'}
+              className={primaryButtonClassName}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              disabled={editStatus.kind === 'saving'}
+              className={secondaryButtonClassName}
+            >
+              Cancel
+            </button>
+            <span aria-live="polite" className={statusTextClassName(editStatus)}>
+              {editStatus.kind === 'saving' && 'Saving…'}
+              {editStatus.kind === 'error' && editStatus.message}
+            </span>
+          </div>
+        </form>
+      </Modal>
+
       <Modal open={deletingId !== null} onClose={handleCancelDelete} title="Delete subscription">
         <div className="flex flex-col gap-3">
           {deletingSubscription && (
@@ -395,7 +588,7 @@ function Subscriptions() {
               return (
                 <tr key={subscription._id}>
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                    {subscription.name ?? '—'}
+                    {subscription.name || '—'}
                   </td>
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
                     {categoryName}
@@ -413,7 +606,15 @@ function Subscriptions() {
                     {subscription.endMonth ?? 'Ongoing'}
                   </td>
                   <td className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        aria-label="Edit subscription"
+                        onClick={() => handleOpenEdit(subscription)}
+                        className={iconButtonClassName}
+                      >
+                        <EditIcon />
+                      </button>
                       <button
                         type="button"
                         aria-label="Delete subscription"
