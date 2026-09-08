@@ -45,6 +45,16 @@ function mockFetch(
           createdAt: '',
           updatedAt: '',
         },
+        {
+          _id: 'sub4',
+          name: 'Storage',
+          amount: 40,
+          category: 'cat1',
+          dayOfMonth: 31,
+          startMonth: '2026-01',
+          createdAt: '',
+          updatedAt: '',
+        },
       ])
     }
 
@@ -59,16 +69,13 @@ function mockFetch(
       )
     }
 
-    if (
-      (url.endsWith('/api/subscriptions/sub1') || url.endsWith('/api/subscriptions/sub2')) &&
-      method === 'PATCH'
-    ) {
+    const patchMatch = url.match(/\/api\/subscriptions\/(sub1|sub2|sub4)$/)
+    if (patchMatch && method === 'PATCH') {
       if (options.failPatch) {
         return jsonResponse({ error: 'endMonth cannot precede startMonth' }, options.failPatch)
       }
-      const id = url.endsWith('sub1') ? 'sub1' : 'sub2'
       const body = JSON.parse(init!.body as string)
-      return jsonResponse({ _id: id, createdAt: '', updatedAt: '', ...body })
+      return jsonResponse({ _id: patchMatch[1], createdAt: '', updatedAt: '', ...body })
     }
 
     if (url.endsWith('/api/subscriptions/sub1') && method === 'DELETE') {
@@ -379,5 +386,74 @@ describe('Subscriptions', () => {
 
     openEditModal('Netflix')
     expect(screen.getByLabelText('Amount')).toHaveValue(9.99)
+  })
+
+  it('shows "End of month" in the table for a dayOfMonth of 31, and the plain number otherwise', async () => {
+    render(<Subscriptions />)
+
+    await screen.findByText('Storage')
+    expect(within(rowFor('Storage')).getByText('End of month')).toBeInTheDocument()
+    expect(within(rowFor('Netflix')).getByText('15')).toBeInTheDocument()
+  })
+
+  it('checking "End of month" in the add modal disables the day input and submits dayOfMonth: 31', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openAddModal()
+    fireEvent.change(screen.getByLabelText('Day of month'), { target: { value: '10' } })
+    fireEvent.click(screen.getByLabelText('End of month'))
+
+    expect(screen.getByLabelText('Day of month')).toBeDisabled()
+    expect(screen.getByLabelText('Day of month')).toHaveValue(null)
+
+    fireEvent.click(screen.getByLabelText('End of month'))
+    expect(screen.getByLabelText('Day of month')).not.toBeDisabled()
+    expect(screen.getByLabelText('Day of month')).toHaveValue(10)
+
+    fireEvent.click(screen.getByLabelText('End of month'))
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '5' } })
+    fireEvent.change(screen.getByLabelText('Start month'), { target: { value: '2026-05' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/subscriptions'),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"dayOfMonth":31'),
+        })
+      )
+    })
+  })
+
+  it('pre-checks "End of month" and disables the day input when editing a dayOfMonth: 31 subscription', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Storage')
+
+    openEditModal('Storage')
+    expect(screen.getByLabelText('End of month')).toBeChecked()
+    expect(screen.getByLabelText('Day of month')).toBeDisabled()
+    expect(screen.getByLabelText('Day of month')).toHaveValue(null)
+  })
+
+  it('checking "End of month" while editing a non-31 subscription submits dayOfMonth: 31 in the PATCH body', async () => {
+    render(<Subscriptions />)
+    await screen.findByText('Netflix')
+
+    openEditModal('Netflix')
+    expect(screen.getByLabelText('End of month')).not.toBeChecked()
+    fireEvent.click(screen.getByLabelText('End of month'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/subscriptions/sub1'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: expect.stringContaining('"dayOfMonth":31'),
+        })
+      )
+    })
   })
 })

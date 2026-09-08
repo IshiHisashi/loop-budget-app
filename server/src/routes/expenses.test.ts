@@ -165,6 +165,22 @@ describe('GET /api/expenses — subscription-generated expenses', () => {
     expect(new Date(res.body[0].date).toISOString()).toBe('2026-02-28T00:00:00.000Z')
   })
 
+  it('clamps dayOfMonth 31 to the last real day when the viewed month is a 30-day month', async () => {
+    const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
+    await Subscription.create({
+      userId,
+      amount: 9.99,
+      category: category._id,
+      dayOfMonth: 31,
+      startMonth: '2026-01',
+    })
+
+    const res = await agent.get('/api/expenses?month=2026-09')
+
+    expect(res.body).toHaveLength(1)
+    expect(new Date(res.body[0].date).toISOString()).toBe('2026-09-30T00:00:00.000Z')
+  })
+
   it('does not create a duplicate when the same month is fetched twice', async () => {
     const category = await Category.create({ userId, name: 'Streaming', isDefault: false })
     const subscription = await Subscription.create({
